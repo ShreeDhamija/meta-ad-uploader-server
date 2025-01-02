@@ -49,6 +49,10 @@ const requireAuth = (req, res, next) => {
     next();
 };
 
+app.get('/', (req, res) => {
+    res.json({ message: "Server is running!" });
+});
+
 // Auth endpoints
 app.post('/api/auth/token', async (req, res) => {
     const { accessToken } = req.body;
