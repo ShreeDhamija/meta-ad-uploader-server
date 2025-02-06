@@ -15,20 +15,20 @@ const app = express();
 app.use(express.json());
 
 app.use(cors({
-  origin: 'http://localhost:5173', // Replace with your React app's origin
+  origin: 'https://batchadupload.vercel.app/', // Replace with your React app's origin
   credentials: true               // This enables sending cookies from the client
 }));
 
 console.log(process.env.META_APP_ID);
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'your-secret-key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
 }));
 // Serve static files if you have them (for production builds, etc.)
 //app.use(express.static(path.join(__dirname, 'public')));
@@ -71,10 +71,10 @@ app.get('/auth/callback', async (req, res) => {
 
 
 
-     userData.accessToken = access_token;
+    userData.accessToken = access_token;
     // Redirect back to your React app. 
     // Adjust the URL/port to wherever your React dev server is running.
-    res.redirect('http://localhost:5173?loggedIn=true');
+    res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
   } catch (error) {
     console.error('OAuth Callback Error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to complete Facebook Login' });
@@ -85,7 +85,7 @@ app.get('/auth/callback', async (req, res) => {
  * Fetch Ad Accounts
  */
 app.get('/auth/fetch-ad-accounts', async (req, res) => {
-  const token = req.session.accessToken; 
+  const token = req.session.accessToken;
   if (!token) {
     return res.status(401).json({ error: 'User not authenticated' });
   }
@@ -181,7 +181,7 @@ app.get('/auth/fetch-adsets', async (req, res) => {
  *   Body: { adSetId, pageId, link, message, caption, cta, imageUrl }
  */
 app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
-  
+
   console.log(req.file.originalname, req.file.mimetype, req.file.size);
   const token = req.session.accessToken;
   try {
@@ -200,7 +200,7 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
     } = req.body; // normal text fields
 
     // The file will be in req.file
-    const file = req.file; 
+    const file = req.file;
     if (!file) {
       return res.status(400).json({ error: 'No image file received' });
     }
@@ -221,10 +221,10 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
     // Build multipart form data for the file
     const formData = new FormData();
     formData.append('access_token', token);
-    formData.append('file', req.file.buffer, { 
-    filename: req.file.originalname, 
-    contentType: req.file.mimetype 
-  });
+    formData.append('file', req.file.buffer, {
+      filename: req.file.originalname,
+      contentType: req.file.mimetype
+    });
     // Send the request to Facebook
     const uploadResponse = await axios.post(uploadUrl, formData, {
       headers: formData.getHeaders()
