@@ -61,7 +61,7 @@ app.get('/auth/callback', async (req, res) => {
       params: {
         client_id: process.env.META_APP_ID,
         client_secret: process.env.META_APP_SECRET,
-        redirect_uri: 'http://localhost:3000/auth/callback',
+        redirect_uri: 'https://meta-ad-uploader-server-production.up.railway.app/auth/callback',
         code: code
       }
     });
