@@ -260,6 +260,13 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
             // Use the uploaded image hash
             image_hash: imageHash
           }
+        },
+        degrees_of_freedom_spec: {
+          creative_features_spec: {
+            standard_enhancements: {
+              enroll_status: "OPT_OUT"  // or "OPT_OUT" if you prefer to disable standard enhancements
+            }
+          }
         }
       },
       status: 'PAUSED'
