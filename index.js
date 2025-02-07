@@ -15,7 +15,7 @@ const app = express();
 app.use(express.json());
 
 app.use(cors({
-  origin: 'https://batchadupload.vercel.app/', // Replace with your React app's origin
+  origin: 'https://batchadupload.vercel.app', // Replace with your React app's origin
   credentials: true               // This enables sending cookies from the client
 }));
 
