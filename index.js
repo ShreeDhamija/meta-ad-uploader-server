@@ -13,13 +13,14 @@ const app = express();
 
 // Parse JSON bodies
 app.use(express.json());
+app.set('trust proxy', 1);
 
 app.use(cors({
   origin: 'https://batchadupload.vercel.app', // Replace with your React app's origin
   credentials: true               // This enables sending cookies from the client
 }));
 
-console.log(process.env.META_APP_ID);
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
