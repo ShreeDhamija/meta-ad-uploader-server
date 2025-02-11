@@ -194,6 +194,9 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
 
     // We expect these fields in multipart form data
     const {
+      adName,
+      headline,
+      description,
       adSetId,
       pageId,
       link,
@@ -242,12 +245,14 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
     // POST /<adSetId>/ads with the object_story_spec referencing image_hash
     const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
     const createAdData = {
-      name: 'My New Ad with File Upload',
+      name: adName,
       adset_id: adSetId,
       creative: {
         object_story_spec: {
           page_id: pageId,
           link_data: {
+            name: headline,          // Displayed headline
+            description: description,
             call_to_action: {
               type: cta,
               value: {
