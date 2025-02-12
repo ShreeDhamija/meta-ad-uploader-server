@@ -44,7 +44,7 @@ let userData = {};
  * Step 1: Facebook Login - Redirect to Facebook OAuth
  */
 app.get('/auth/facebook', (req, res) => {
-  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management&response_type=code`;
+  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list&response_type=code`;
   res.redirect(redirectUri);
 });
 
@@ -177,6 +177,29 @@ app.get('/auth/fetch-adsets', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch ad sets' });
   }
 });
+
+app.get('/auth/fetch-pages', async (req, res) => {
+  const token = req.session.accessToken;
+  if (!token) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  try {
+    // The /me/accounts endpoint returns Pages that the user manages
+    const pagesResponse = await axios.get('https://graph.facebook.com/v21.0/me/accounts', {
+      params: {
+        access_token: token,
+        fields: 'id,name,access_token'
+      }
+    });
+    const pages = pagesResponse.data.data;
+    res.json({ success: true, pages });
+  } catch (error) {
+    console.error('Error fetching pages:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to fetch pages' });
+  }
+});
+
 
 /**
  * (NEW) Create an Ad in a given Ad Set
