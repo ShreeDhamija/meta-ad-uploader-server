@@ -245,7 +245,7 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
     // 1) Upload the image to the Meta Marketing API
     // POST /act_<AD_ACCOUNT_ID>/adimages with file data
     if (file.mimetype.startsWith('video/')) {
-      const uploadVideoUrl = `https://graph.facebook.com/v21.0/act_${adAccountId}/advideos`;
+      const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
 
       // Use FormData for video upload
       const videoFormData = new FormData();
