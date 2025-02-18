@@ -294,7 +294,7 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
       };
 
       // Post the ad creative using the video ad data
-      const createAdUrl = `https://graph.facebook.com/v21.0/act_${adAccountId}/ads`;
+      const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
       const createAdResponse = await axios.post(createAdUrl, createAdData, {
         params: { access_token: req.session.accessToken }
       });
