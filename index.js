@@ -281,6 +281,7 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
               },
               message: message,
               title: headline,
+              image_url: "https://images.pexels.com/photos/30432517/pexels-photo-30432517/free-photo-of-people-walking-on-historic-railway-platform.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
 
             }
           },
