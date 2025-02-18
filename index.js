@@ -208,7 +208,6 @@ app.get('/auth/fetch-pages', async (req, res) => {
  */
 app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
 
-  console.log(req.file.originalname, req.file.mimetype, req.file.size);
   const token = req.session.accessToken;
   try {
     if (!token) {
@@ -245,69 +244,127 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
 
     // 1) Upload the image to the Meta Marketing API
     // POST /act_<AD_ACCOUNT_ID>/adimages with file data
-    const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+    if (file.mimetype.startsWith('video/')) {
+      const uploadVideoUrl = `https://graph.facebook.com/v21.0/act_${adAccountId}/advideos`;
 
-    // Build multipart form data for the file
-    const formData = new FormData();
-    formData.append('access_token', token);
-    formData.append('file', req.file.buffer, {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype
-    });
-    // Send the request to Facebook
-    const uploadResponse = await axios.post(uploadUrl, formData, {
-      headers: formData.getHeaders()
-    });
+      // Use FormData for video upload
+      const videoFormData = new FormData();
+      videoFormData.append('access_token', req.session.accessToken);
+      // Note: Some endpoints expect the file parameter to be named 'source'
+      videoFormData.append('source', file.buffer, {
+        filename: file.originalname,
+        contentType: file.mimetype
+      });
 
-    // The response should have "images": { "<filename>": { "hash": "..."} }
-    const imagesInfo = uploadResponse.data.images;
-    const filenameKey = Object.keys(imagesInfo)[0]; // we only uploaded 1 file
-    const imageHash = imagesInfo[filenameKey].hash;
+      const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
+        headers: videoFormData.getHeaders()
+      });
 
-    // 2) Now create the ad on the chosen ad set:
-    // POST /<adSetId>/ads with the object_story_spec referencing image_hash
-    const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
-    const createAdData = {
-      name: adName,
-      adset_id: adSetId,
-      creative: {
-        object_story_spec: {
-          page_id: pageId,
-          link_data: {
-            name: headline,          // Displayed headline
-            description: description,
-            call_to_action: {
-              type: cta,
-              value: {
-                link: link
+      const videoId = videoUploadResponse.data.id;
+
+      // 2. Create video ad creative payload using video_data
+      const createAdData = {
+        name: adName,
+        adset_id: adSetId,
+        creative: {
+          object_story_spec: {
+            page_id: pageId,
+            video_data: {
+              video_id: videoId,
+              call_to_action: {
+                type: cta,
+                value: {
+                  link: link
+                }
+              },
+              message: message,
+              title: headline,
+              description: description
+            }
+          },
+          degrees_of_freedom_spec: {
+            creative_features_spec: {
+              standard_enhancements: {
+                enroll_status: "OPT_OUT"
               }
-            },
-            message: message,
-            link: link,
-            caption: caption,
-            // Use the uploaded image hash
-            image_hash: imageHash
-          }
-        },
-        degrees_of_freedom_spec: {
-          creative_features_spec: {
-            standard_enhancements: {
-              enroll_status: "OPT_OUT"  // or "OPT_OUT" if you prefer to disable standard enhancements
             }
           }
+        },
+        status: 'PAUSED'
+      };
+
+      // Post the ad creative using the video ad data
+      const createAdUrl = `https://graph.facebook.com/v21.0/act_${adAccountId}/ads`;
+      const createAdResponse = await axios.post(createAdUrl, createAdData, {
+        params: { access_token: req.session.accessToken }
+      });
+      return res.json(createAdResponse.data);
+    }
+    else {
+      const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+
+      // Build multipart form data for the file
+      const formData = new FormData();
+      formData.append('access_token', token);
+      formData.append('file', req.file.buffer, {
+        filename: req.file.originalname,
+        contentType: req.file.mimetype
+      });
+      // Send the request to Facebook
+      const uploadResponse = await axios.post(uploadUrl, formData, {
+        headers: formData.getHeaders()
+      });
+
+      // The response should have "images": { "<filename>": { "hash": "..."} }
+      const imagesInfo = uploadResponse.data.images;
+      const filenameKey = Object.keys(imagesInfo)[0]; // we only uploaded 1 file
+      const imageHash = imagesInfo[filenameKey].hash;
+
+      // 2) Now create the ad on the chosen ad set:
+      // POST /<adSetId>/ads with the object_story_spec referencing image_hash
+      const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+      const createAdData = {
+        name: adName,
+        adset_id: adSetId,
+        creative: {
+          object_story_spec: {
+            page_id: pageId,
+            link_data: {
+              name: headline,          // Displayed headline
+              description: description,
+              call_to_action: {
+                type: cta,
+                value: {
+                  link: link
+                }
+              },
+              message: message,
+              link: link,
+              caption: caption,
+              // Use the uploaded image hash
+              image_hash: imageHash
+            }
+          },
+          degrees_of_freedom_spec: {
+            creative_features_spec: {
+              standard_enhancements: {
+                enroll_status: "OPT_OUT"  // or "OPT_OUT" if you prefer to disable standard enhancements
+              }
+            }
+          }
+        },
+        status: 'PAUSED'
+      };
+
+      const createAdResponse = await axios.post(createAdUrl, createAdData, {
+        params: {
+          access_token: token
         }
-      },
-      status: 'PAUSED'
-    };
+      });
 
-    const createAdResponse = await axios.post(createAdUrl, createAdData, {
-      params: {
-        access_token: token
-      }
-    });
-
-    // Respond with the newly created Ad info
-    res.json(createAdResponse.data);
+      // Respond with the newly created Ad info
+      res.json(createAdResponse.data);
+    }
   } catch (error) {
     console.error('Create Ad Error:', error.response?.data || error.message);
     return res.status(500).json({ error: 'Failed to create ad' });
