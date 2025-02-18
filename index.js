@@ -266,10 +266,12 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
       const createAdData = {
         name: adName,
         adset_id: adSetId,
+        description: description,
         creative: {
           object_story_spec: {
             page_id: pageId,
-            video_data: {
+            video_data:
+            {
               video_id: videoId,
               call_to_action: {
                 type: cta,
@@ -279,7 +281,7 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
               },
               message: message,
               title: headline,
-              description: description
+
             }
           },
           degrees_of_freedom_spec: {
