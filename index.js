@@ -206,7 +206,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
  *   POST /auth/create-ad
  *   Body: { adSetId, pageId, link, message, caption, cta, imageUrl }
  */
-app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
+app.post('/auth/create-ad', upload.fields([{ name: 'iamgeFile', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res) => {
 
   const token = req.session.accessToken;
   try {
@@ -228,7 +228,7 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
     } = req.body; // normal text fields
 
     // The file will be in req.file
-    const file = req.file;
+    const file = req.files.imageFile && req.files.imageFile[0];
     if (!file) {
       return res.status(400).json({ error: 'No image file received' });
     }
@@ -260,7 +260,27 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
         headers: videoFormData.getHeaders()
       });
 
+
+      //create thumbnail hash
       const videoId = videoUploadResponse.data.id;
+      const thumbnailFile = req.files.thumbnail && req.files.thumbnail[0];
+      if (!thumbnailFile) {
+        return res.status(400).json({ error: 'Thumbnail file is required for video ads' });
+      }
+      const thumbFormData = new FormData();
+      thumbFormData.append('access_token', token);
+      thumbFormData.append('file', thumbnailFile.buffer, {
+        filename: thumbnailFile.originalname,
+        contentType: thumbnailFile.mimetype
+      });
+      const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+      const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
+        headers: thumbFormData.getHeaders()
+      });
+      const imagesInfo = thumbUploadResponse.data.images;
+      const thumbKey = Object.keys(imagesInfo)[0];
+      const thumbnailHash = imagesInfo[thumbKey].hash;
+
 
       // 2. Create video ad creative payload using video_data
       const createAdData = {
@@ -281,7 +301,8 @@ app.post('/auth/create-ad', upload.single('imageFile'), async (req, res) => {
               },
               message: message,
               title: headline,
-              image_url: "https://images.pexels.com/photos/30432517/pexels-photo-30432517/free-photo-of-people-walking-on-historic-railway-platform.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
+              link_description: description,
+              image_hash: thumbnailHash,
 
             }
           },
