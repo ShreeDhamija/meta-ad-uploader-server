@@ -330,9 +330,9 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
       // Build multipart form data for the file
       const formData = new FormData();
       formData.append('access_token', token);
-      formData.append('file', req.file.buffer, {
-        filename: req.file.originalname,
-        contentType: req.file.mimetype
+      formData.append('file', file.buffer, {
+        filename: file.originalname,
+        contentType: file.mimetype
       });
       // Send the request to Facebook
       const uploadResponse = await axios.post(uploadUrl, formData, {
