@@ -206,7 +206,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
  *   POST /auth/create-ad
  *   Body: { adSetId, pageId, link, message, caption, cta, imageUrl }
  */
-app.post('/auth/create-ad', upload.fields([{ name: 'iamgeFile', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res) => {
+app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res) => {
 
   const token = req.session.accessToken;
   try {
