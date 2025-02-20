@@ -178,6 +178,34 @@ app.get('/auth/fetch-adsets', async (req, res) => {
   }
 });
 
+app.post('/auth/duplicate-adset', async (req, res) => {
+  const token = req.session.accessToken;
+  if (!token) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+  const { adSetId, campaignId, adAccountId } = req.body;
+  if (!adSetId || !campaignId || !adAccountId) {
+    return res.status(400).json({ error: 'Missing required parameters' });
+  }
+
+  try {
+    // Use the /{ad_set_id}/copies edge to duplicate the ad set.
+    const copyUrl = `https://graph.facebook.com/v21.0/${adSetId}/copies`;
+    const params = {
+      campaign_id: campaignId,            // The campaign to place the duplicate in.
+      rename: `Copy of ad set ${adSetId}`,  // Customize the new ad set name as needed.
+      access_token: token,
+    };
+
+    const copyResponse = await axios.post(copyUrl, null, { params });
+    return res.json(copyResponse.data);
+  } catch (error) {
+    console.error('Duplicate adSet error:', error.response?.data || error.message);
+    return res.status(500).json({ error: 'Failed to duplicate adSet' });
+  }
+});
+
+
 app.get('/auth/fetch-pages', async (req, res) => {
   const token = req.session.accessToken;
   if (!token) {
