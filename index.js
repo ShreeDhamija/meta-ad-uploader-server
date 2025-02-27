@@ -275,6 +275,8 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
     } catch (e) {
       messagesArray = req.body.message ? [req.body.message] : [];
     }
+    const useDynamicCreative =
+      headlines.length > 1 || descriptionsArray.length > 1 || messagesArray.length > 1;
 
     // The file will be in req.file
     const file = req.files.imageFile && req.files.imageFile[0];
@@ -340,24 +342,52 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
         link_urls: [{ website_url: link }]
       };
       // 2. Create video ad creative payload using video_data
-      const createAdData = {
-        name: adName,
-        adset_id: adSetId,
-        creative: {
-          object_story_spec: {
-            page_id: pageId,
-          },
-          asset_feed_spec: assetFeedSpec,
-          degrees_of_freedom_spec: {
-            creative_features_spec: {
-              standard_enhancements: {
-                enroll_status: "OPT_OUT"
+      let createAdData;
+      if (useDynamicCreative) {
+        createAdData = {
+          name: adName,
+          adset_id: adSetId,
+          creative: {
+            object_story_spec: {
+              page_id: pageId,
+            },
+            asset_feed_spec: assetFeedSpec,
+            degrees_of_freedom_spec: {
+              creative_features_spec: {
+                standard_enhancements: {
+                  enroll_status: "OPT_OUT"
+                }
               }
             }
-          }
-        },
-        status: 'PAUSED'
-      };
+          },
+          status: 'PAUSED'
+        };
+      }
+      else {
+        createAdData = {
+          name: adName,
+          adset_id: adSetId,
+          creative: {
+            object_story_spec: {
+              page_id: pageId,
+              video_data: {
+                video_id: videoId,
+                call_to_action: {
+                  type: cta,
+                  value: { link }
+                },
+                // Note: Using the single value from each array
+                message: descriptionsArray[0],
+                title: headlines[0],
+                image_hash: thumbnailHash,
+              }
+            },
+            degrees_of_freedom_spec: creativeDegrees
+          },
+          status: 'PAUSED'
+        };
+      }
+
 
       // Post the ad creative using the video ad data
       const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
@@ -399,24 +429,53 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
         link_urls: [{ website_url: link }]
       };
       // 2. Create video ad creative payload using video_data
-      const createAdData = {
-        name: adName,
-        adset_id: adSetId,
-        creative: {
-          object_story_spec: {
-            page_id: pageId,
-          },
-          asset_feed_spec: assetFeedSpec,
-          degrees_of_freedom_spec: {
-            creative_features_spec: {
-              standard_enhancements: {
-                enroll_status: "OPT_OUT"
+      let createAdData;
+      if (useDynamicCreative) {
+        createAdData = {
+          name: adName,
+          adset_id: adSetId,
+          creative: {
+            object_story_spec: {
+              page_id: pageId,
+            },
+            asset_feed_spec: assetFeedSpec,
+            degrees_of_freedom_spec: {
+              creative_features_spec: {
+                standard_enhancements: {
+                  enroll_status: "OPT_OUT"
+                }
               }
             }
-          }
-        },
-        status: 'PAUSED'
-      };
+          },
+          status: 'PAUSED'
+        };
+      }
+      else {
+        createAdData = {
+          name: adName,
+          adset_id: adSetId,
+          creative: {
+            object_story_spec: {
+              page_id: pageId,
+              link_data: {
+                name: headlines[0],
+                description: descriptionsArray[0],
+                call_to_action: {
+                  type: cta,
+                  value: { link }
+                },
+                message: messagesArray[0],
+                link: link,
+                caption: caption,
+                image_hash: imageHash
+              }
+            },
+            degrees_of_freedom_spec: creativeDegrees
+          },
+          status: 'PAUSED'
+        };
+      }
+
 
       const createAdResponse = await axios.post(createAdUrl, createAdData, {
         params: {
