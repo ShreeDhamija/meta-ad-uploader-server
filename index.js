@@ -382,7 +382,13 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
                 image_hash: thumbnailHash,
               }
             },
-            degrees_of_freedom_spec: creativeDegrees
+            degrees_of_freedom_spec: {
+              creative_features_spec: {
+                standard_enhancements: {
+                  enroll_status: "OPT_OUT"
+                }
+              }
+            }
           },
           status: 'PAUSED'
         };
@@ -470,7 +476,13 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
                 image_hash: imageHash
               }
             },
-            degrees_of_freedom_spec: creativeDegrees
+            degrees_of_freedom_spec: {
+              creative_features_spec: {
+                standard_enhancements: {
+                  enroll_status: "OPT_OUT"
+                }
+              }
+            }
           },
           status: 'PAUSED'
         };
