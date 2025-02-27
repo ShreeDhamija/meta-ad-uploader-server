@@ -245,15 +245,36 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
     // We expect these fields in multipart form data
     const {
       adName,
-      headline,
-      description,
+      // headline,
+      // description,
+      //message,
       adSetId,
       pageId,
       link,
-      message,
       caption,
       cta
     } = req.body; // normal text fields
+
+
+    let headlines = [];
+    let descriptionsArray = [];
+    let messagesArray = [];
+
+    try {
+      headlines = JSON.parse(req.body.headlines);
+    } catch (e) {
+      headlines = req.body.headline ? [req.body.headline] : [];
+    }
+    try {
+      descriptionsArray = JSON.parse(req.body.descriptions);
+    } catch (e) {
+      descriptionsArray = req.body.description ? [req.body.description] : [];
+    }
+    try {
+      messagesArray = JSON.parse(req.body.messages);
+    } catch (e) {
+      messagesArray = req.body.message ? [req.body.message] : [];
+    }
 
     // The file will be in req.file
     const file = req.files.imageFile && req.files.imageFile[0];
@@ -309,31 +330,24 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
       const thumbKey = Object.keys(imagesInfo)[0];
       const thumbnailHash = imagesInfo[thumbKey].hash;
 
-
+      const assetFeedSpec = {
+        videos: [{ video_id: videoId, thumbnail_hash: thumbnailHash }],
+        titles: headlines.map(text => ({ text })),
+        bodies: messagesArray.map(text => ({ text })),
+        descriptions: descriptionsArray.map(text => ({ text })),
+        ad_formats: ["SINGLE_VIDEO"], // or appropriate formats
+        call_to_action_types: [cta],    // e.g., "SHOP_NOW"
+        link_urls: [{ website_url: link }]
+      };
       // 2. Create video ad creative payload using video_data
       const createAdData = {
         name: adName,
         adset_id: adSetId,
-        description: description,
         creative: {
           object_story_spec: {
             page_id: pageId,
-            video_data:
-            {
-              video_id: videoId,
-              call_to_action: {
-                type: cta,
-                value: {
-                  link: link
-                }
-              },
-              message: message,
-              title: headline,
-              link_description: description,
-              image_hash: thumbnailHash,
-
-            }
           },
+          asset_feed_spec: assetFeedSpec,
           degrees_of_freedom_spec: {
             creative_features_spec: {
               standard_enhancements: {
@@ -375,32 +389,28 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
       // 2) Now create the ad on the chosen ad set:
       // POST /<adSetId>/ads with the object_story_spec referencing image_hash
       const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+      const assetFeedSpec = {
+        images: [{ hash: imageHash }],
+        titles: headlines.map(text => ({ text })),
+        bodies: messagesArray.map(text => ({ text })),
+        descriptions: descriptionsArray.map(text => ({ text })),
+        ad_formats: ["SINGLE_IMAGE"], // or appropriate formats
+        call_to_action_types: [cta],    // e.g., "SHOP_NOW"
+        link_urls: [{ website_url: link }]
+      };
+      // 2. Create video ad creative payload using video_data
       const createAdData = {
         name: adName,
         adset_id: adSetId,
         creative: {
           object_story_spec: {
             page_id: pageId,
-            link_data: {
-              name: headline,          // Displayed headline
-              description: description,
-              call_to_action: {
-                type: cta,
-                value: {
-                  link: link
-                }
-              },
-              message: message,
-              link: link,
-              caption: caption,
-              // Use the uploaded image hash
-              image_hash: imageHash
-            }
           },
+          asset_feed_spec: assetFeedSpec,
           degrees_of_freedom_spec: {
             creative_features_spec: {
               standard_enhancements: {
-                enroll_status: "OPT_OUT"  // or "OPT_OUT" if you prefer to disable standard enhancements
+                enroll_status: "OPT_OUT"
               }
             }
           }
