@@ -416,6 +416,15 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
       const createAdResponse = await axios.post(createAdUrl, createAdData, {
         params: { access_token: req.session.accessToken }
       });
+
+      fs.unlink(file.path, (err) => {
+        if (err) console.error("Error deleting video file:", err);
+        else console.log("Video file deleted:", file.path);
+      });
+      fs.unlink(thumbnailFile.path, (err) => {
+        if (err) console.error("Error deleting thumbnail file:", err);
+        else console.log("Thumbnail file deleted:", thumbnailFile.path);
+      });
       return res.json(createAdResponse.data);
     }
     else {
@@ -510,7 +519,10 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
           access_token: token
         }
       });
-
+      fs.unlink(file.path, (err) => {
+        if (err) console.error("Error deleting image file:", err);
+        else console.log("Image file deleted:", file.path);
+      });
       // Respond with the newly created Ad info
       res.json(createAdResponse.data);
     }
