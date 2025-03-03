@@ -88,9 +88,20 @@ app.get('/auth/callback', async (req, res) => {
       }
     });
 
-    const { access_token } = tokenResponse.data;
-    req.session.accessToken = access_token;
-    userData.accessToken = access_token;
+    const { access_token: shortLivedToken } = tokenResponse.data;
+    const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
+      params: {
+        grant_type: 'fb_exchange_token',
+        client_id: process.env.META_APP_ID,
+        client_secret: process.env.META_APP_SECRET,
+        fb_exchange_token: shortLivedToken
+      }
+    });
+    const { access_token: longLivedToken } = longLivedResponse.data;
+
+    // Store the long-lived token in the session (and any in-memory storage you use).
+    req.session.accessToken = longLivedToken;
+    userData.accessToken = longLivedToken;
     // Redirect back to your React app. 
     // Adjust the URL/port to wherever your React dev server is running.
     res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
