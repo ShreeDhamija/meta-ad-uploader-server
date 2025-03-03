@@ -6,9 +6,8 @@ const multer = require('multer');
 const FormData = require('form-data');
 const session = require('express-session');
 const dotenvResult = require('dotenv').config();
-
-
-
+const fs = require('fs');
+const path = require('path');
 const app = express();
 
 // Parse JSON bodies
@@ -33,12 +32,33 @@ app.use(session({
 
   }
 }));
+
+
+//multer discStorage
+const uploadDir = path.join('/data', 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 // Serve static files if you have them (for production builds, etc.)
 //app.use(express.static(path.join(__dirname, 'public')));
-const upload = multer({ storage: multer.memoryStorage() });
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    // Save files to the persistent uploads folder
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    // Create a unique filename (e.g., fieldname-timestamp-random.ext)
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage });
+
 
 // Store user data in memory (use a database in production)
 let userData = {};
+
 
 /**
  * Step 1: Facebook Login - Redirect to Facebook OAuth
@@ -71,9 +91,6 @@ app.get('/auth/callback', async (req, res) => {
 
     const { access_token } = tokenResponse.data;
     req.session.accessToken = access_token;
-
-
-
     userData.accessToken = access_token;
     // Redirect back to your React app. 
     // Adjust the URL/port to wherever your React dev server is running.
@@ -302,7 +319,7 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
       const videoFormData = new FormData();
       videoFormData.append('access_token', req.session.accessToken);
       // Note: Some endpoints expect the file parameter to be named 'source'
-      videoFormData.append('source', file.buffer, {
+      videoFormData.append('source', fs.createReadStream(file.path), {
         filename: file.originalname,
         contentType: file.mimetype
       });
@@ -320,7 +337,7 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
       }
       const thumbFormData = new FormData();
       thumbFormData.append('access_token', token);
-      thumbFormData.append('file', thumbnailFile.buffer, {
+      thumbFormData.append('file', fs.createReadStream(thumbnailFile.path), {
         filename: thumbnailFile.originalname,
         contentType: thumbnailFile.mimetype
       });
@@ -408,7 +425,7 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
       // Build multipart form data for the file
       const formData = new FormData();
       formData.append('access_token', token);
-      formData.append('file', file.buffer, {
+      formData.append('file', fs.createReadStream(file.path), {
         filename: file.originalname,
         contentType: file.mimetype
       });
