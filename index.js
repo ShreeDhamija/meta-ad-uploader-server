@@ -542,7 +542,7 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
     console.error('Create Ad Error:', error.response?.data || error.message);
     const fbErrorMsg = error.response?.data?.error?.error_user_msg || 'Failed to create ad';
     console.log(error.response?.data?.error?.error_user_msg || 'Failed to create ad');
-    return res.status(400).json({ error: fbErrorMsg });
+    return res.status(400).send(fbErrorMsg);
   }
 });
 
