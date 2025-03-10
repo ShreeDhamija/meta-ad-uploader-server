@@ -18,6 +18,7 @@ app.use(cors({
   credentials: true               // This enables sending cookies from the client
 }));
 
+app.use(express.static('public'));
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key',
@@ -539,7 +540,8 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
     }
   } catch (error) {
     console.error('Create Ad Error:', error.response?.data || error.message);
-    return res.status(500).json({ error: 'Failed to create ad' });
+    const fbErrorMsg = error.response?.data?.error?.error_user_msg || 'Failed to create ad';
+    return res.status(400).json({ error: fbErrorMsg });
   }
 });
 
