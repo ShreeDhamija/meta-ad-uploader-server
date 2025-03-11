@@ -279,7 +279,7 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
       adSetId,
       pageId,
       link,
-      caption,
+      //caption,
       cta
     } = req.body; // normal text fields
 
@@ -509,7 +509,7 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
                 },
                 message: messagesArray[0],
                 link: link,
-                caption: caption,
+                caption: link,
                 image_hash: imageHash
               }
             },
