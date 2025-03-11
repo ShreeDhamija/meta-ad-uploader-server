@@ -388,7 +388,7 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
               }
             }
           },
-          status: 'PAUSED'
+          status: 'ACTIVE'
         };
       }
       else {
@@ -418,7 +418,7 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
               }
             }
           },
-          status: 'PAUSED'
+          status: 'ACTIVE'
         };
       }
 
