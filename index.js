@@ -103,6 +103,21 @@ app.get('/auth/callback', async (req, res) => {
     // Store the long-lived token in the session (and any in-memory storage you use).
     req.session.accessToken = longLivedToken;
     userData.accessToken = longLivedToken;
+
+    // Store the access token in the session
+    req.session.accessToken = longLivedToken;
+
+    // Fetch the user's profile (for example, just the name)
+    const profileResponse = await axios.get('https://graph.facebook.com/v21.0/me', {
+      params: {
+        access_token: longLivedToken,
+        fields: 'name'
+      }
+    });
+    const userName = profileResponse.data.name;
+
+    // Store user data in session (you could add more fields as needed)
+    req.session.user = { name: userName };
     // Redirect back to your React app. 
     // Adjust the URL/port to wherever your React dev server is running.
     res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
@@ -115,6 +130,16 @@ app.get('/auth/callback', async (req, res) => {
 /**
  * Fetch Ad Accounts
  */
+
+app.get('/auth/me', (req, res) => {
+  if (req.session && req.session.user) {
+    res.json({ user: req.session.user });
+  } else {
+    res.status(401).json({ error: 'Not authenticated' });
+  }
+});
+
+
 app.get('/auth/fetch-ad-accounts', async (req, res) => {
   const token = req.session.accessToken;
   if (!token) {
@@ -161,7 +186,7 @@ app.get('/auth/fetch-campaigns', async (req, res) => {
     const campaignsResponse = await axios.get(campaignsUrl, {
       params: {
         access_token: token,
-        fields: 'id,name,status'
+        fields: 'id,name,status,objective'
       }
     });
 
@@ -193,7 +218,7 @@ app.get('/auth/fetch-adsets', async (req, res) => {
     const adSetsResponse = await axios.get(adSetsUrl, {
       params: {
         access_token: token,
-        fields: 'id,name,status'
+        fields: 'id,name,status,destination_type'
       }
     });
 
@@ -490,7 +515,7 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
               }
             }
           },
-          status: 'PAUSED'
+          status: 'ACTIVE'
         };
       }
       else {
@@ -521,7 +546,7 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
               }
             }
           },
-          status: 'PAUSED'
+          status: 'ACTIVE'
         };
       }
 
