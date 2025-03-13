@@ -281,6 +281,18 @@ app.get('/auth/fetch-pages', async (req, res) => {
   }
 });
 
+app.get('/auth/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Error destroying session:', err);
+      return res.status(500).json({ error: 'Failed to logout' });
+    }
+    // Clear the session cookie. Adjust the cookie name if necessary.
+    res.clearCookie('connect.sid');
+    res.json({ success: true });
+  });
+});
+
 
 /**
  * (NEW) Create an Ad in a given Ad Set
