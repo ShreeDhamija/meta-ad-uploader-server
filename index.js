@@ -218,7 +218,7 @@ app.get('/auth/fetch-adsets', async (req, res) => {
     const adSetsResponse = await axios.get(adSetsUrl, {
       params: {
         access_token: token,
-        fields: 'id,name,status,destination_type'
+        fields: 'id,name,status,is_dynamic_creative'
       }
     });
 
@@ -340,8 +340,21 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
     } catch (e) {
       messagesArray = req.body.message ? [req.body.message] : [];
     }
+
+
+
+    // Fetch the ad set info to retrieve the is_dynamic_creative field
+    const adSetInfoUrl = `https://graph.facebook.com/v21.0/${adSetId}`;
+    const adSetInfoResponse = await axios.get(adSetInfoUrl, {
+      params: {
+        access_token: token,
+        fields: 'is_dynamic_creative'
+      }
+    });
+    const adSetDynamicCreative = adSetInfoResponse.data.is_dynamic_creative;
+
     const useDynamicCreative =
-      headlines.length > 1 || descriptionsArray.length > 1 || messagesArray.length > 1;
+      headlines.length > 1 || descriptionsArray.length > 1 || messagesArray.length > 1 || adSetDynamicCreative;
 
     // The file will be in req.file
     const file = req.files.imageFile && req.files.imageFile[0];
@@ -357,6 +370,8 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
     if (!adAccountId) {
       return res.status(400).json({ error: 'Missing adAccountId' });
     }
+
+
 
     // 1) Upload the image to the Meta Marketing API
     // POST /act_<AD_ACCOUNT_ID>/adimages with file data
