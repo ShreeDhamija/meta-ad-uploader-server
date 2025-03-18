@@ -218,7 +218,7 @@ app.get('/auth/fetch-adsets', async (req, res) => {
     const adSetsResponse = await axios.get(adSetsUrl, {
       params: {
         access_token: token,
-        fields: 'id,name,status,is_dynamic_creative'
+        fields: 'id,name,status,is_dynamic_creative,destination_type'
       }
     });
 
