@@ -246,7 +246,9 @@ app.post('/auth/duplicate-adset', async (req, res) => {
     const copyUrl = `https://graph.facebook.com/v21.0/${adSetId}/copies`;
     const params = {
       campaign_id: campaignId,            // The campaign to place the duplicate in.
-      rename: `Copy of ad set ${adSetId}`,  // Customize the new ad set name as needed.
+      rename_options: JSON.stringify({
+        rename_suffix: '_02'
+      }),
       access_token: token,
     };
 
