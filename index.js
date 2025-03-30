@@ -296,6 +296,34 @@ app.get('/auth/logout', (req, res) => {
 });
 
 
+// Helper function to poll the video processing status
+async function waitForVideoProcessing(videoId, token) {
+  const maxWaitTime = 300000; // 5 minutes in milliseconds
+  const pollInterval = 5000; // Poll every 5 seconds
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < maxWaitTime) {
+    // Call the video endpoint to get the status
+    const videoStatusUrl = `https://graph.facebook.com/v21.0/${videoId}`;
+    const statusResponse = await axios.get(videoStatusUrl, {
+      params: {
+        access_token: token,
+        fields: 'status'
+      }
+    });
+    const videoStatus = statusResponse.data.status.video_status;
+    if (videoStatus === 'ready') {
+      return; // Video is processed
+    } else if (videoStatus === 'failed') {
+      throw new Error('Video processing failed');
+    }
+    // Wait for the poll interval before checking again
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  }
+  throw new Error('Video processing timed out');
+}
+
+
 /**
  * (NEW) Create an Ad in a given Ad Set
  *   POST /auth/create-ad
@@ -396,6 +424,10 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
 
       //create thumbnail hash
       const videoId = videoUploadResponse.data.id;
+      // Only for dynamic creative, wait for the video to be processed
+      if (useDynamicCreative) {
+        await waitForVideoProcessing(videoId, token);
+      }
       const thumbnailFile = req.files.thumbnail && req.files.thumbnail[0];
       if (!thumbnailFile) {
         return res.status(400).json({ error: 'Thumbnail file is required for video ads' });
