@@ -459,8 +459,9 @@ app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, {
                   value: { link }
                 },
                 // Note: Using the single value from each array
-                message: descriptionsArray[0],
+                message: messagesArray[0],
                 title: headlines[0],
+                link_description: descriptionsArray[0],
                 image_hash: thumbnailHash,
               }
             },
