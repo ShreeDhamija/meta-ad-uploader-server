@@ -432,7 +432,9 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
 async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative) {
   const file = req.files.imageFile && req.files.imageFile[0];
   const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-
+  console.log("BODY in helper", req.body);
+  console.log("FILES in helper", req.files);
+  console.log("token in helper", token);
   const formData = new FormData();
   formData.append('access_token', token);
   formData.append('file', fs.createReadStream(file.path), {
@@ -458,6 +460,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     descriptionsArray,
     useDynamicCreative
   });
+  console.log("reached helper post request");
   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
@@ -483,6 +486,7 @@ app.post(
     { name: 'thumbnail', maxCount: 1 }           // For non-dynamic creative video thumbnail
   ]),
   async (req, res) => {
+    console.log("reached create ad");
     const token = req.session.accessToken;
     if (!token) return res.status(401).json({ error: 'User not authenticated' });
 
@@ -490,7 +494,8 @@ app.post(
       // Extract basic fields and parse creative text fields.
       const { adName, adSetId, pageId, link, cta, adAccountId } = req.body;
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
-
+      console.log("BODY", req.body)
+      console.log("FILES", req.files)
       const parseField = (field, fallback) => {
         try { return JSON.parse(field); } catch (e) { return fallback ? [fallback] : []; }
       };
@@ -503,6 +508,8 @@ app.post(
       const adSetInfoResponse = await axios.get(adSetInfoUrl, {
         params: { access_token: token, fields: 'is_dynamic_creative' }
       });
+      console.log("Access token", token)
+
       const adSetDynamicCreative = adSetInfoResponse.data.is_dynamic_creative;
       const useDynamicCreative =
         headlines.length > 1 ||
