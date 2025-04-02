@@ -15,7 +15,7 @@ app.set('trust proxy', 1);
 
 app.use(cors({
   origin: 'https://batchadupload.vercel.app', // Replace with your React app's origin
-  credentials: true // This enables sending cookies from the client
+  credentials: true               // This enables sending cookies from the client
 }));
 
 app.use(express.static('public'));
@@ -29,27 +29,36 @@ app.use(session({
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     sameSite: 'none'
+
   }
 }));
 
-// Multer disk storage
+
+//multer discStorage
 const uploadDir = path.join('/data', 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
+// Serve static files if you have them (for production builds, etc.)
+//app.use(express.static(path.join(__dirname, 'public')));
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
+    // Save files to the persistent uploads folder
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
+    // Create a unique filename (e.g., fieldname-timestamp-random.ext)
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
+
 const upload = multer({ storage });
 
-// In-memory user storage (use a database in production)
+
+// Store user data in memory (use a database in production)
 let userData = {};
+
 
 /**
  * Step 1: Facebook Login - Redirect to Facebook OAuth
@@ -64,9 +73,11 @@ app.get('/auth/facebook', (req, res) => {
  */
 app.get('/auth/callback', async (req, res) => {
   const { code } = req.query;
+
   if (!code) {
     return res.status(400).json({ error: 'Authorization code missing' });
   }
+
   try {
     // Exchange the authorization code for an access token
     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
@@ -77,6 +88,7 @@ app.get('/auth/callback', async (req, res) => {
         code: code
       }
     });
+
     const { access_token: shortLivedToken } = tokenResponse.data;
     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
       params: {
@@ -87,16 +99,27 @@ app.get('/auth/callback', async (req, res) => {
       }
     });
     const { access_token: longLivedToken } = longLivedResponse.data;
+
+    // Store the long-lived token in the session (and any in-memory storage you use).
     req.session.accessToken = longLivedToken;
     userData.accessToken = longLivedToken;
-    req.session.user = {
-      name: (await axios.get('https://graph.facebook.com/v21.0/me', {
-        params: {
-          access_token: longLivedToken,
-          fields: 'name'
-        }
-      })).data.name
-    };
+
+    // Store the access token in the session
+    req.session.accessToken = longLivedToken;
+
+    // Fetch the user's profile (for example, just the name)
+    const profileResponse = await axios.get('https://graph.facebook.com/v21.0/me', {
+      params: {
+        access_token: longLivedToken,
+        fields: 'name'
+      }
+    });
+    const userName = profileResponse.data.name;
+
+    // Store user data in session (you could add more fields as needed)
+    req.session.user = { name: userName };
+    // Redirect back to your React app. 
+    // Adjust the URL/port to wherever your React dev server is running.
     res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
   } catch (error) {
     console.error('OAuth Callback Error:', error.response?.data || error.message);
@@ -107,6 +130,7 @@ app.get('/auth/callback', async (req, res) => {
 /**
  * Fetch Ad Accounts
  */
+
 app.get('/auth/me', (req, res) => {
   if (req.session && req.session.user) {
     res.json({ user: req.session.user });
@@ -115,9 +139,13 @@ app.get('/auth/me', (req, res) => {
   }
 });
 
+
 app.get('/auth/fetch-ad-accounts', async (req, res) => {
   const token = req.session.accessToken;
-  if (!token) return res.status(401).json({ error: 'User not authenticated' });
+  if (!token) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
     const adAccountsResponse = await axios.get('https://graph.facebook.com/v21.0/me/adaccounts', {
       params: {
@@ -125,9 +153,14 @@ app.get('/auth/fetch-ad-accounts', async (req, res) => {
         fields: 'id,account_id,name'
       }
     });
+
     const adAccounts = adAccountsResponse.data.data;
-    userData.adAccounts = adAccounts;
-    res.json({ success: true, adAccounts });
+    userData.adAccounts = adAccounts; // optional storage
+
+    res.json({
+      success: true,
+      adAccounts
+    });
   } catch (error) {
     console.error('Fetch Ad Accounts Error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch ad accounts' });
@@ -136,12 +169,18 @@ app.get('/auth/fetch-ad-accounts', async (req, res) => {
 
 /**
  * Fetch Campaigns for a given Ad Account
+ *   GET /auth/fetch-campaigns?adAccountId=act_XXXX
  */
 app.get('/auth/fetch-campaigns', async (req, res) => {
   const { adAccountId } = req.query;
   const token = req.session.accessToken;
-  if (!token) return res.status(401).json({ error: 'User not authenticated' });
-  if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId parameter' });
+  if (!token) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+  if (!adAccountId) {
+    return res.status(400).json({ error: 'Missing adAccountId parameter' });
+  }
+
   try {
     const campaignsUrl = `https://graph.facebook.com/v21.0/${adAccountId}/campaigns`;
     const campaignsResponse = await axios.get(campaignsUrl, {
@@ -150,7 +189,10 @@ app.get('/auth/fetch-campaigns', async (req, res) => {
         fields: 'id,name,status,objective'
       }
     });
-    res.json({ campaigns: campaignsResponse.data.data });
+
+    res.json({
+      campaigns: campaignsResponse.data.data
+    });
   } catch (error) {
     console.error('Fetch Campaigns Error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch campaigns' });
@@ -159,12 +201,18 @@ app.get('/auth/fetch-campaigns', async (req, res) => {
 
 /**
  * Fetch Ad Sets for a given Campaign
+ *   GET /auth/fetch-adsets?campaignId=123456
  */
 app.get('/auth/fetch-adsets', async (req, res) => {
   const { campaignId } = req.query;
   const token = req.session.accessToken;
-  if (!token) return res.status(401).json({ error: 'User not authenticated' });
-  if (!campaignId) return res.status(400).json({ error: 'Missing campaignId parameter' });
+  if (!token) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+  if (!campaignId) {
+    return res.status(400).json({ error: 'Missing campaignId parameter' });
+  }
+
   try {
     const adSetsUrl = `https://graph.facebook.com/v21.0/${campaignId}/adsets`;
     const adSetsResponse = await axios.get(adSetsUrl, {
@@ -173,7 +221,10 @@ app.get('/auth/fetch-adsets', async (req, res) => {
         fields: 'id,name,status,is_dynamic_creative,destination_type'
       }
     });
-    res.json({ adSets: adSetsResponse.data.data });
+
+    res.json({
+      adSets: adSetsResponse.data.data
+    });
   } catch (error) {
     console.error('Fetch Ad Sets Error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch ad sets' });
@@ -182,18 +233,25 @@ app.get('/auth/fetch-adsets', async (req, res) => {
 
 app.post('/auth/duplicate-adset', async (req, res) => {
   const token = req.session.accessToken;
-  if (!token) return res.status(401).json({ error: 'User not authenticated' });
+  if (!token) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
   const { adSetId, campaignId, adAccountId } = req.body;
   if (!adSetId || !campaignId || !adAccountId) {
     return res.status(400).json({ error: 'Missing required parameters' });
   }
+
   try {
+    // Use the /{ad_set_id}/copies edge to duplicate the ad set.
     const copyUrl = `https://graph.facebook.com/v21.0/${adSetId}/copies`;
     const params = {
-      campaign_id: campaignId,
-      rename_options: JSON.stringify({ rename_suffix: '_02' }),
+      campaign_id: campaignId,            // The campaign to place the duplicate in.
+      rename_options: JSON.stringify({
+        rename_suffix: '_02'
+      }),
       access_token: token,
     };
+
     const copyResponse = await axios.post(copyUrl, null, { params });
     return res.json(copyResponse.data);
   } catch (error) {
@@ -202,10 +260,15 @@ app.post('/auth/duplicate-adset', async (req, res) => {
   }
 });
 
+
 app.get('/auth/fetch-pages', async (req, res) => {
   const token = req.session.accessToken;
-  if (!token) return res.status(401).json({ error: 'User not authenticated' });
+  if (!token) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
+    // The /me/accounts endpoint returns Pages that the user manages
     const pagesResponse = await axios.get('https://graph.facebook.com/v21.0/me/accounts', {
       params: {
         access_token: token,
@@ -226,497 +289,317 @@ app.get('/auth/logout', (req, res) => {
       console.error('Error destroying session:', err);
       return res.status(500).json({ error: 'Failed to logout' });
     }
+    // Clear the session cookie. Adjust the cookie name if necessary.
     res.clearCookie('connect.sid');
     res.json({ success: true });
   });
 });
 
-// Helper: Poll video processing status
-async function waitForVideoProcessing(videoId, token) {
-  const maxWaitTime = 300000; // 5 minutes
-  const pollInterval = 5000;  // 5 seconds
-  const startTime = Date.now();
-
-  while (Date.now() - startTime < maxWaitTime) {
-    const videoStatusUrl = `https://graph.facebook.com/v21.0/${videoId}`;
-    const statusResponse = await axios.get(videoStatusUrl, {
-      params: {
-        access_token: token,
-        fields: 'status'
-      }
-    });
-    const videoStatus = statusResponse.data.status && statusResponse.data.status.video_status;
-    if (videoStatus === 'ready') return;
-    if (videoStatus === 'failed') throw new Error('Video processing failed');
-    await new Promise(resolve => setTimeout(resolve, pollInterval));
-  }
-  throw new Error('Video processing timed out');
-}
-
-// Helper: Build video creative payload
-function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, useDynamicCreative }) {
-  if (useDynamicCreative) {
-    return {
-      name: adName,
-      adset_id: adSetId,
-      creative: {
-        object_story_spec: { page_id: pageId },
-        asset_feed_spec: {
-          videos: [{ video_id: videoId, thumbnail_hash: thumbnailHash }],
-          titles: headlines.map(text => ({ text })),
-          bodies: messagesArray.map(text => ({ text })),
-          descriptions: descriptionsArray.map(text => ({ text })),
-          ad_formats: ["SINGLE_VIDEO"],
-          call_to_action_types: [cta],
-          link_urls: [{ website_url: link }]
-        },
-        degrees_of_freedom_spec: {
-          creative_features_spec: {
-            standard_enhancements: { enroll_status: "OPT_OUT" }
-          }
-        }
-      },
-      status: 'ACTIVE'
-    };
-  } else {
-    return {
-      name: adName,
-      adset_id: adSetId,
-      creative: {
-        object_story_spec: {
-          page_id: pageId,
-          video_data: {
-            video_id: videoId,
-            call_to_action: { type: cta, value: { link } },
-            message: messagesArray[0],
-            title: headlines[0],
-            link_description: descriptionsArray[0],
-            image_hash: thumbnailHash
-          }
-        },
-        degrees_of_freedom_spec: {
-          creative_features_spec: {
-            standard_enhancements: { enroll_status: "OPT_OUT" }
-          }
-        }
-      },
-      status: 'ACTIVE'
-    };
-  }
-}
-
-// Helper: Build image creative payload
-function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative }) {
-  if (useDynamicCreative) {
-    return {
-      name: adName,
-      adset_id: adSetId,
-      creative: {
-        object_story_spec: { page_id: pageId },
-        asset_feed_spec: {
-          images: [{ hash: imageHash }],
-          titles: headlines.map(text => ({ text })),
-          bodies: messagesArray.map(text => ({ text })),
-          descriptions: descriptionsArray.map(text => ({ text })),
-          ad_formats: ["SINGLE_IMAGE"],
-          call_to_action_types: [cta],
-          link_urls: [{ website_url: link }]
-        },
-        degrees_of_freedom_spec: {
-          creative_features_spec: {
-            standard_enhancements: { enroll_status: "OPT_OUT" }
-          }
-        }
-      },
-      status: 'ACTIVE'
-    };
-  } else {
-    return {
-      name: adName,
-      adset_id: adSetId,
-      creative: {
-        object_story_spec: {
-          page_id: pageId,
-          link_data: {
-            name: headlines[0],
-            description: descriptionsArray[0],
-            call_to_action: { type: cta, value: { link } },
-            message: messagesArray[0],
-            link: link,
-            caption: link,
-            image_hash: imageHash
-          }
-        },
-        degrees_of_freedom_spec: {
-          creative_features_spec: {
-            standard_enhancements: { enroll_status: "OPT_OUT" }
-          }
-        }
-      },
-      status: 'ACTIVE'
-    };
-  }
-}
-
-// Helper: Handle Video Ad Creation
-async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative) {
-  const file = req.files.imageFile && req.files.imageFile[0];
-  const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
-
-  const videoFormData = new FormData();
-  videoFormData.append('access_token', token);
-  videoFormData.append('source', fs.createReadStream(file.path), {
-    filename: file.originalname,
-    contentType: file.mimetype
-  });
-  const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
-    headers: videoFormData.getHeaders()
-  });
-  const videoId = videoUploadResponse.data.id;
-
-  // Wait for processing only if dynamic creative is used
-  if (useDynamicCreative) {
-    await waitForVideoProcessing(videoId, token);
-  }
-
-  const thumbnailFile = req.files.thumbnail && req.files.thumbnail[0];
-  if (!thumbnailFile) {
-    throw new Error('Thumbnail file is required for video ads');
-  }
-  const thumbFormData = new FormData();
-  thumbFormData.append('access_token', token);
-  thumbFormData.append('file', fs.createReadStream(thumbnailFile.path), {
-    filename: thumbnailFile.originalname,
-    contentType: thumbnailFile.mimetype
-  });
-  const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-  const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
-    headers: thumbFormData.getHeaders()
-  });
-  const imagesInfo = thumbUploadResponse.data.images;
-  const thumbKey = Object.keys(imagesInfo)[0];
-  const thumbnailHash = imagesInfo[thumbKey].hash;
-
-  const creativePayload = buildVideoCreativePayload({
-    adName,
-    adSetId,
-    pageId,
-    videoId,
-    cta,
-    link,
-    headlines,
-    messagesArray,
-    descriptionsArray,
-    thumbnailHash,
-    useDynamicCreative
-  });
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
-  const createAdResponse = await axios.post(createAdUrl, creativePayload, {
-    params: { access_token: token }
-  });
-
-  // Cleanup files
-  fs.unlink(file.path, err => {
-    if (err) console.error("Error deleting video file:", err);
-    else console.log("Video file deleted:", file.path);
-  });
-  fs.unlink(thumbnailFile.path, err => {
-    if (err) console.error("Error deleting thumbnail file:", err);
-    else console.log("Thumbnail file deleted:", thumbnailFile.path);
-  });
-
-  return createAdResponse.data;
-}
-
-// Helper: Handle Image Ad Creation
-async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative) {
-  const file = req.files.imageFile && req.files.imageFile[0];
-  const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-  console.log("BODY in helper", req.body);
-  console.log("FILES in helper", req.files);
-  console.log("token in helper", token);
-  const formData = new FormData();
-  formData.append('access_token', token);
-  formData.append('file', fs.createReadStream(file.path), {
-    filename: file.originalname,
-    contentType: file.mimetype
-  });
-  const uploadResponse = await axios.post(uploadUrl, formData, {
-    headers: formData.getHeaders()
-  });
-  const imagesInfo = uploadResponse.data.images;
-  const filenameKey = Object.keys(imagesInfo)[0];
-  const imageHash = imagesInfo[filenameKey].hash;
-
-  const creativePayload = buildImageCreativePayload({
-    adName,
-    adSetId,
-    pageId,
-    imageHash,
-    cta,
-    link,
-    headlines,
-    messagesArray,
-    descriptionsArray,
-    useDynamicCreative
-  });
-  console.log("reached helper post request");
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
-  const createAdResponse = await axios.post(createAdUrl, creativePayload, {
-    params: { access_token: token }
-  });
-
-  fs.unlink(file.path, err => {
-    if (err) console.error("Error deleting image file:", err);
-    else console.log("Image file deleted:", file.path);
-  });
-
-  return createAdResponse.data;
-}
 
 /**
  * (NEW) Create an Ad in a given Ad Set
+ *   POST /auth/create-ad
+ *   Body: { adSetId, pageId, link, message, caption, cta, imageUrl }
  */
-app.post(
-  '/auth/create-ad',
-  upload.fields([
-    { name: 'mediaFiles', maxCount: 10 },      // For dynamic creative (multiple files)
-    { name: 'thumbnails', maxCount: 1 },        // For dynamic creative video thumbnails
-    { name: 'imageFile', maxCount: 1 },          // For non-dynamic creative (single file)
-    { name: 'thumbnail', maxCount: 1 }           // For non-dynamic creative video thumbnail
-  ]),
-  async (req, res) => {
-    console.log("reached create ad");
-    const token = req.session.accessToken;
-    if (!token) return res.status(401).json({ error: 'User not authenticated' });
+app.post('/auth/create-ad', upload.fields([{ name: 'imageFile', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res) => {
+
+  const token = req.session.accessToken;
+  try {
+    if (!token) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // We expect these fields in multipart form data
+    const {
+      adName,
+      // headline,
+      // description,
+      //message,
+      adSetId,
+      pageId,
+      link,
+      //caption,
+      cta
+    } = req.body; // normal text fields
+
+
+    let headlines = [];
+    let descriptionsArray = [];
+    let messagesArray = [];
 
     try {
-      // Extract basic fields and parse creative text fields.
-      const { adName, adSetId, pageId, link, cta, adAccountId } = req.body;
-      if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
-      console.log("BODY", req.body)
-      console.log("FILES", req.files)
-      const parseField = (field, fallback) => {
-        try { return JSON.parse(field); } catch (e) { return fallback ? [fallback] : []; }
-      };
-      const headlines = parseField(req.body.headlines, req.body.headline);
-      const descriptionsArray = parseField(req.body.descriptions, req.body.description);
-      const messagesArray = parseField(req.body.messages, req.body.message);
-
-      // Fetch the ad set info to determine dynamic creative.
-      const adSetInfoUrl = `https://graph.facebook.com/v21.0/${adSetId}`;
-      const adSetInfoResponse = await axios.get(adSetInfoUrl, {
-        params: { access_token: token, fields: 'is_dynamic_creative' }
-      });
-      console.log("Access token", token)
-
-      const adSetDynamicCreative = adSetInfoResponse.data.is_dynamic_creative;
-      const useDynamicCreative =
-        headlines.length > 1 ||
-        descriptionsArray.length > 1 ||
-        messagesArray.length > 1 ||
-        adSetDynamicCreative;
-
-      let result;
-      // For dynamic ad creative, use the aggregated media fields.
-      if (useDynamicCreative) {
-        // Expect the aggregated files to be in req.files.mediaFiles
-        const mediaFiles = req.files.mediaFiles;
-        if (!mediaFiles || mediaFiles.length === 0) {
-          return res.status(400).json({ error: 'No media files received for dynamic creative' });
-        }
-        // Decide if these are videos or images (assumes all files are of the same type)
-        if (mediaFiles[0].mimetype.startsWith('video/')) {
-          result = await handleDynamicVideoAd(
-            req,
-            token,
-            adAccountId,
-            adSetId,
-            pageId,
-            adName,
-            cta,
-            link,
-            headlines,
-            messagesArray,
-            descriptionsArray
-          );
-        } else {
-          result = await handleDynamicImageAd(
-            req,
-            token,
-            adAccountId,
-            adSetId,
-            pageId,
-            adName,
-            cta,
-            link,
-            headlines,
-            messagesArray,
-            descriptionsArray
-          );
-        }
-      } else {
-        // Non-dynamic creative: use the original single file fields.
-        const file = req.files.imageFile && req.files.imageFile[0];
-        if (!file) return res.status(400).json({ error: 'No image file received' });
-        if (file.mimetype.startsWith('video/')) {
-          result = await handleVideoAd(
-            req,
-            token,
-            adAccountId,
-            adSetId,
-            pageId,
-            adName,
-            cta,
-            link,
-            headlines,
-            messagesArray,
-            descriptionsArray,
-            useDynamicCreative
-          );
-        } else {
-          result = await handleImageAd(
-            req,
-            token,
-            adAccountId,
-            adSetId,
-            pageId,
-            adName,
-            cta,
-            link,
-            headlines,
-            messagesArray,
-            descriptionsArray,
-            useDynamicCreative
-          );
-        }
-      }
-      return res.json(result);
-    } catch (error) {
-      console.error('Create Ad Error:', error.response?.data || error.message);
-      const fbErrorMsg = error.response?.data?.error?.error_user_msg || error.message || 'Failed to create ad';
-      return res.status(400).send(fbErrorMsg);
+      headlines = JSON.parse(req.body.headlines);
+    } catch (e) {
+      headlines = req.body.headline ? [req.body.headline] : [];
     }
-  }
-);
+    try {
+      descriptionsArray = JSON.parse(req.body.descriptions);
+    } catch (e) {
+      descriptionsArray = req.body.description ? [req.body.description] : [];
+    }
+    try {
+      messagesArray = JSON.parse(req.body.messages);
+    } catch (e) {
+      messagesArray = req.body.message ? [req.body.message] : [];
+    }
 
-// Helper: Process multiple images for dynamic creative.
-async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray) {
-  const mediaFiles = req.files.mediaFiles;
-  let imageHashes = [];
-  for (const file of mediaFiles) {
-    const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-    const formData = new FormData();
-    formData.append('access_token', token);
-    formData.append('file', fs.createReadStream(file.path), {
-      filename: file.originalname,
-      contentType: file.mimetype
-    });
-    const uploadResponse = await axios.post(uploadUrl, formData, {
-      headers: formData.getHeaders()
-    });
-    const imagesInfo = uploadResponse.data.images;
-    const key = Object.keys(imagesInfo)[0];
-    imageHashes.push({ hash: imagesInfo[key].hash });
-    await fs.promises.unlink(file.path).catch(err => console.error("Error deleting image file:", err));
-  }
-  const assetFeedSpec = {
-    images: imageHashes,
-    titles: headlines.map(text => ({ text })),
-    bodies: messagesArray.map(text => ({ text })),
-    descriptions: descriptionsArray.map(text => ({ text })),
-    ad_formats: ["SINGLE_IMAGE"],
-    call_to_action_types: [cta],
-    link_urls: [{ website_url: link }]
-  };
-  const creativePayload = {
-    name: adName,
-    adset_id: adSetId,
-    creative: {
-      object_story_spec: { page_id: pageId },
-      asset_feed_spec: assetFeedSpec,
-      degrees_of_freedom_spec: {
-        creative_features_spec: { standard_enhancements: { enroll_status: "OPT_OUT" } }
+
+
+    // Fetch the ad set info to retrieve the is_dynamic_creative field
+    const adSetInfoUrl = `https://graph.facebook.com/v21.0/${adSetId}`;
+    const adSetInfoResponse = await axios.get(adSetInfoUrl, {
+      params: {
+        access_token: token,
+        fields: 'is_dynamic_creative'
       }
-    },
-    status: 'ACTIVE'
-  };
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
-  const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
-  return createAdResponse.data;
-}
-
-// Helper: Process multiple videos for dynamic creative.
-async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray) {
-  const mediaFiles = req.files.mediaFiles;
-  const thumbFile = req.files.thumbnail && req.files.thumbnail[0];
-  if (!thumbFile) {
-    throw new Error("Thumbnail file is required for dynamic video ads");
-  }
-
-  let videoAssets = [];
-  for (let i = 0; i < mediaFiles.length; i++) {
-    const file = mediaFiles[i];
-    const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
-    const videoFormData = new FormData();
-    videoFormData.append('access_token', token);
-    videoFormData.append('source', fs.createReadStream(file.path), {
-      filename: file.originalname,
-      contentType: file.mimetype
     });
-    const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
-      headers: videoFormData.getHeaders()
-    });
-    const videoId = videoUploadResponse.data.id;
-    await waitForVideoProcessing(videoId, token);
+    const adSetDynamicCreative = adSetInfoResponse.data.is_dynamic_creative;
 
-    // Use the same thumbFile for every video:
-    const thumbFormData = new FormData();
-    thumbFormData.append('access_token', token);
-    thumbFormData.append('file', fs.createReadStream(thumbFile.path), {
-      filename: thumbFile.originalname,
-      contentType: thumbFile.mimetype
-    });
-    const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-    const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
-      headers: thumbFormData.getHeaders()
-    });
-    const imagesInfo = thumbUploadResponse.data.images;
-    const key = Object.keys(imagesInfo)[0];
-    videoAssets.push({ video_id: videoId, thumbnail_hash: imagesInfo[key].hash });
+    const useDynamicCreative =
+      headlines.length > 1 || descriptionsArray.length > 1 || messagesArray.length > 1 || adSetDynamicCreative;
 
-    // Clean up video file after processing
-    await fs.promises.unlink(file.path).catch(err => console.error("Error deleting video file:", err));
-  }
+    // The file will be in req.file
+    const file = req.files.imageFile && req.files.imageFile[0];
+    if (!file) {
+      return res.status(400).json({ error: 'No image file received' });
+    }
 
-  // Clean up the single thumbnail file after all videos have been processed
-  await fs.promises.unlink(thumbFile.path).catch(err => console.error("Error deleting thumbnail file:", err));
+    // (A) Derive or get the Ad Account ID
+    // Option 1: Pass it from the front end in formData (then it's in req.body.adAccountId).
+    // Option 2: Extract from adSetId if it looks like act_<ID>...
+    // For simplicity, let's assume user also included adAccountId in the form:
+    const { adAccountId } = req.body;
+    if (!adAccountId) {
+      return res.status(400).json({ error: 'Missing adAccountId' });
+    }
 
-  const assetFeedSpec = {
-    videos: videoAssets,
-    titles: headlines.map(text => ({ text })),
-    bodies: messagesArray.map(text => ({ text })),
-    descriptions: descriptionsArray.map(text => ({ text })),
-    ad_formats: ["SINGLE_VIDEO"],
-    call_to_action_types: [cta],
-    link_urls: [{ website_url: link }]
-  };
-  const creativePayload = {
-    name: adName,
-    adset_id: adSetId,
-    creative: {
-      object_story_spec: { page_id: pageId },
-      asset_feed_spec: assetFeedSpec,
-      degrees_of_freedom_spec: {
-        creative_features_spec: { standard_enhancements: { enroll_status: "OPT_OUT" } }
+
+
+    // 1) Upload the image to the Meta Marketing API
+    // POST /act_<AD_ACCOUNT_ID>/adimages with file data
+    if (file.mimetype.startsWith('video/')) {
+      const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
+
+      // Use FormData for video upload
+      const videoFormData = new FormData();
+      videoFormData.append('access_token', req.session.accessToken);
+      // Note: Some endpoints expect the file parameter to be named 'source'
+      videoFormData.append('source', fs.createReadStream(file.path), {
+        filename: file.originalname,
+        contentType: file.mimetype
+      });
+
+      const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
+        headers: videoFormData.getHeaders()
+      });
+
+
+      //create thumbnail hash
+      const videoId = videoUploadResponse.data.id;
+      const thumbnailFile = req.files.thumbnail && req.files.thumbnail[0];
+      if (!thumbnailFile) {
+        return res.status(400).json({ error: 'Thumbnail file is required for video ads' });
       }
-    },
-    status: 'ACTIVE'
-  };
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
-  const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
-  return createAdResponse.data;
-}
+      const thumbFormData = new FormData();
+      thumbFormData.append('access_token', token);
+      thumbFormData.append('file', fs.createReadStream(thumbnailFile.path), {
+        filename: thumbnailFile.originalname,
+        contentType: thumbnailFile.mimetype
+      });
+      const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+      const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
+        headers: thumbFormData.getHeaders()
+      });
+      const imagesInfo = thumbUploadResponse.data.images;
+      const thumbKey = Object.keys(imagesInfo)[0];
+      const thumbnailHash = imagesInfo[thumbKey].hash;
+
+      const assetFeedSpec = {
+        videos: [{ video_id: videoId, thumbnail_hash: thumbnailHash }],
+        titles: headlines.map(text => ({ text })),
+        bodies: messagesArray.map(text => ({ text })),
+        descriptions: descriptionsArray.map(text => ({ text })),
+        ad_formats: ["SINGLE_VIDEO"], // or appropriate formats
+        call_to_action_types: [cta],    // e.g., "SHOP_NOW"
+        link_urls: [{ website_url: link }]
+      };
+      // 2. Create video ad creative payload using video_data
+      let createAdData;
+      if (useDynamicCreative) {
+        createAdData = {
+          name: adName,
+          adset_id: adSetId,
+          creative: {
+            object_story_spec: {
+              page_id: pageId,
+            },
+            asset_feed_spec: assetFeedSpec,
+            degrees_of_freedom_spec: {
+              creative_features_spec: {
+                standard_enhancements: {
+                  enroll_status: "OPT_OUT"
+                }
+              }
+            }
+          },
+          status: 'ACTIVE'
+        };
+      }
+      else {
+        createAdData = {
+          name: adName,
+          adset_id: adSetId,
+          creative: {
+            object_story_spec: {
+              page_id: pageId,
+              video_data: {
+                video_id: videoId,
+                call_to_action: {
+                  type: cta,
+                  value: { link }
+                },
+                // Note: Using the single value from each array
+                message: messagesArray[0],
+                title: headlines[0],
+                link_description: descriptionsArray[0],
+                image_hash: thumbnailHash,
+              }
+            },
+            degrees_of_freedom_spec: {
+              creative_features_spec: {
+                standard_enhancements: {
+                  enroll_status: "OPT_OUT"
+                }
+              }
+            }
+          },
+          status: 'ACTIVE'
+        };
+      }
+
+
+      // Post the ad creative using the video ad data
+      const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+      const createAdResponse = await axios.post(createAdUrl, createAdData, {
+        params: { access_token: req.session.accessToken }
+      });
+
+      fs.unlink(file.path, (err) => {
+        if (err) console.error("Error deleting video file:", err);
+        else console.log("Video file deleted:", file.path);
+      });
+      fs.unlink(thumbnailFile.path, (err) => {
+        if (err) console.error("Error deleting thumbnail file:", err);
+        else console.log("Thumbnail file deleted:", thumbnailFile.path);
+      });
+      return res.json(createAdResponse.data);
+    }
+    else {
+      const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+
+      // Build multipart form data for the file
+      const formData = new FormData();
+      formData.append('access_token', token);
+      formData.append('file', fs.createReadStream(file.path), {
+        filename: file.originalname,
+        contentType: file.mimetype
+      });
+      // Send the request to Facebook
+      const uploadResponse = await axios.post(uploadUrl, formData, {
+        headers: formData.getHeaders()
+      });
+
+      // The response should have "images": { "<filename>": { "hash": "..."} }
+      const imagesInfo = uploadResponse.data.images;
+      const filenameKey = Object.keys(imagesInfo)[0]; // we only uploaded 1 file
+      const imageHash = imagesInfo[filenameKey].hash;
+
+      // 2) Now create the ad on the chosen ad set:
+      // POST /<adSetId>/ads with the object_story_spec referencing image_hash
+      const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+      const assetFeedSpec = {
+        images: [{ hash: imageHash }],
+        titles: headlines.map(text => ({ text })),
+        bodies: messagesArray.map(text => ({ text })),
+        descriptions: descriptionsArray.map(text => ({ text })),
+        ad_formats: ["SINGLE_IMAGE"], // or appropriate formats
+        call_to_action_types: [cta],    // e.g., "SHOP_NOW"
+        link_urls: [{ website_url: link }]
+      };
+      // 2. Create video ad creative payload using video_data
+      let createAdData;
+      if (useDynamicCreative) {
+        createAdData = {
+          name: adName,
+          adset_id: adSetId,
+          creative: {
+            object_story_spec: {
+              page_id: pageId,
+            },
+            asset_feed_spec: assetFeedSpec,
+            degrees_of_freedom_spec: {
+              creative_features_spec: {
+                standard_enhancements: {
+                  enroll_status: "OPT_OUT"
+                }
+              }
+            }
+          },
+          status: 'ACTIVE'
+        };
+      }
+      else {
+        createAdData = {
+          name: adName,
+          adset_id: adSetId,
+          creative: {
+            object_story_spec: {
+              page_id: pageId,
+              link_data: {
+                name: headlines[0],
+                description: descriptionsArray[0],
+                call_to_action: {
+                  type: cta,
+                  value: { link }
+                },
+                message: messagesArray[0],
+                link: link,
+                caption: link,
+                image_hash: imageHash
+              }
+            },
+            degrees_of_freedom_spec: {
+              creative_features_spec: {
+                standard_enhancements: {
+                  enroll_status: "OPT_OUT"
+                }
+              }
+            }
+          },
+          status: 'ACTIVE'
+        };
+      }
+
+
+      const createAdResponse = await axios.post(createAdUrl, createAdData, {
+        params: {
+          access_token: token
+        }
+      });
+      fs.unlink(file.path, (err) => {
+        if (err) console.error("Error deleting image file:", err);
+        else console.log("Image file deleted:", file.path);
+      });
+      // Respond with the newly created Ad info
+      res.json(createAdResponse.data);
+    }
+  } catch (error) {
+    console.error('Create Ad Error:', error.response?.data || error.message);
+    const fbErrorMsg = error.response?.data?.error?.error_user_msg || 'Failed to create ad';
+    console.log(error.response?.data?.error?.error_user_msg || 'Failed to create ad');
+    return res.status(400).send(fbErrorMsg);
+  }
+});
 
 
 const PORT = process.env.PORT || 3000;
