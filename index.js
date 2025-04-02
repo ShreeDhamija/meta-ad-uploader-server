@@ -55,7 +55,7 @@ let userData = {};
  * Step 1: Facebook Login - Redirect to Facebook OAuth
  */
 app.get('/auth/facebook', (req, res) => {
-  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list&response_type=code`;
+  const redirectUri = `https://www.facebook.com/v22.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list&response_type=code`;
   res.redirect(redirectUri);
 });
 
@@ -69,7 +69,7 @@ app.get('/auth/callback', async (req, res) => {
   }
   try {
     // Exchange the authorization code for an access token
-    const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
+    const tokenResponse = await axios.get('https://graph.facebook.com/v22.0/oauth/access_token', {
       params: {
         client_id: process.env.META_APP_ID,
         client_secret: process.env.META_APP_SECRET,
@@ -78,7 +78,7 @@ app.get('/auth/callback', async (req, res) => {
       }
     });
     const { access_token: shortLivedToken } = tokenResponse.data;
-    const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
+    const longLivedResponse = await axios.get('https://graph.facebook.com/v22.0/oauth/access_token', {
       params: {
         grant_type: 'fb_exchange_token',
         client_id: process.env.META_APP_ID,
@@ -90,7 +90,7 @@ app.get('/auth/callback', async (req, res) => {
     req.session.accessToken = longLivedToken;
     userData.accessToken = longLivedToken;
     req.session.user = {
-      name: (await axios.get('https://graph.facebook.com/v21.0/me', {
+      name: (await axios.get('https://graph.facebook.com/v22.0/me', {
         params: {
           access_token: longLivedToken,
           fields: 'name'
@@ -119,7 +119,7 @@ app.get('/auth/fetch-ad-accounts', async (req, res) => {
   const token = req.session.accessToken;
   if (!token) return res.status(401).json({ error: 'User not authenticated' });
   try {
-    const adAccountsResponse = await axios.get('https://graph.facebook.com/v21.0/me/adaccounts', {
+    const adAccountsResponse = await axios.get('https://graph.facebook.com/v22.0/me/adaccounts', {
       params: {
         access_token: token,
         fields: 'id,account_id,name'
@@ -143,7 +143,7 @@ app.get('/auth/fetch-campaigns', async (req, res) => {
   if (!token) return res.status(401).json({ error: 'User not authenticated' });
   if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId parameter' });
   try {
-    const campaignsUrl = `https://graph.facebook.com/v21.0/${adAccountId}/campaigns`;
+    const campaignsUrl = `https://graph.facebook.com/v22.0/${adAccountId}/campaigns`;
     const campaignsResponse = await axios.get(campaignsUrl, {
       params: {
         access_token: token,
@@ -166,7 +166,7 @@ app.get('/auth/fetch-adsets', async (req, res) => {
   if (!token) return res.status(401).json({ error: 'User not authenticated' });
   if (!campaignId) return res.status(400).json({ error: 'Missing campaignId parameter' });
   try {
-    const adSetsUrl = `https://graph.facebook.com/v21.0/${campaignId}/adsets`;
+    const adSetsUrl = `https://graph.facebook.com/v22.0/${campaignId}/adsets`;
     const adSetsResponse = await axios.get(adSetsUrl, {
       params: {
         access_token: token,
@@ -188,7 +188,7 @@ app.post('/auth/duplicate-adset', async (req, res) => {
     return res.status(400).json({ error: 'Missing required parameters' });
   }
   try {
-    const copyUrl = `https://graph.facebook.com/v21.0/${adSetId}/copies`;
+    const copyUrl = `https://graph.facebook.com/v22.0/${adSetId}/copies`;
     const params = {
       campaign_id: campaignId,
       rename_options: JSON.stringify({ rename_suffix: '_02' }),
@@ -206,7 +206,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
   const token = req.session.accessToken;
   if (!token) return res.status(401).json({ error: 'User not authenticated' });
   try {
-    const pagesResponse = await axios.get('https://graph.facebook.com/v21.0/me/accounts', {
+    const pagesResponse = await axios.get('https://graph.facebook.com/v22.0/me/accounts', {
       params: {
         access_token: token,
         fields: 'id,name,access_token'
@@ -238,7 +238,7 @@ async function waitForVideoProcessing(videoId, token) {
   const startTime = Date.now();
 
   while (Date.now() - startTime < maxWaitTime) {
-    const videoStatusUrl = `https://graph.facebook.com/v21.0/${videoId}`;
+    const videoStatusUrl = `https://graph.facebook.com/v22.0/${videoId}`;
     const statusResponse = await axios.get(videoStatusUrl, {
       params: {
         access_token: token,
@@ -361,7 +361,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
 // Helper: Handle Video Ad Creation
 async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative) {
   const file = req.files.imageFile && req.files.imageFile[0];
-  const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
+  const uploadVideoUrl = `https://graph.facebook.com/v22.0/${adAccountId}/advideos`;
 
   const videoFormData = new FormData();
   videoFormData.append('access_token', token);
@@ -389,7 +389,7 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     filename: thumbnailFile.originalname,
     contentType: thumbnailFile.mimetype
   });
-  const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+  const thumbUploadUrl = `https://graph.facebook.com/v22.0/${adAccountId}/adimages`;
   const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
     headers: thumbFormData.getHeaders()
   });
@@ -410,7 +410,7 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     thumbnailHash,
     useDynamicCreative
   });
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
   });
@@ -431,7 +431,7 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
 // Helper: Handle Image Ad Creation
 async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative) {
   const file = req.files.imageFile && req.files.imageFile[0];
-  const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+  const uploadUrl = `https://graph.facebook.com/v22.0/${adAccountId}/adimages`;
 
   const formData = new FormData();
   formData.append('access_token', token);
@@ -458,7 +458,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     descriptionsArray,
     useDynamicCreative
   });
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
   });
@@ -499,7 +499,7 @@ app.post(
       const messagesArray = parseField(req.body.messages, req.body.message);
 
       // Fetch the ad set info to determine dynamic creative.
-      const adSetInfoUrl = `https://graph.facebook.com/v21.0/${adSetId}`;
+      const adSetInfoUrl = `https://graph.facebook.com/v22.0/${adSetId}`;
       const adSetInfoResponse = await axios.get(adSetInfoUrl, {
         params: { access_token: token, fields: 'is_dynamic_creative' }
       });
@@ -598,7 +598,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
   const mediaFiles = req.files.mediaFiles;
   let imageHashes = [];
   for (const file of mediaFiles) {
-    const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+    const uploadUrl = `https://graph.facebook.com/v22.0/${adAccountId}/adimages`;
     const formData = new FormData();
     formData.append('access_token', token);
     formData.append('file', fs.createReadStream(file.path), {
@@ -634,7 +634,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     },
     status: 'ACTIVE'
   };
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
   return createAdResponse.data;
 }
@@ -650,7 +650,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
   let videoAssets = [];
   for (let i = 0; i < mediaFiles.length; i++) {
     const file = mediaFiles[i];
-    const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
+    const uploadVideoUrl = `https://graph.facebook.com/v22.0/${adAccountId}/advideos`;
     const videoFormData = new FormData();
     videoFormData.append('access_token', token);
     videoFormData.append('source', fs.createReadStream(file.path), {
@@ -670,7 +670,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
       filename: thumbFile.originalname,
       contentType: thumbFile.mimetype
     });
-    const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+    const thumbUploadUrl = `https://graph.facebook.com/v22.0/${adAccountId}/adimages`;
     const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
       headers: thumbFormData.getHeaders()
     });
@@ -706,7 +706,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     },
     status: 'ACTIVE'
   };
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
   return createAdResponse.data;
 }
