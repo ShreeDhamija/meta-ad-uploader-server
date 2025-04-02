@@ -442,9 +442,28 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     contentType: file.mimetype
   });
   console.log("before upload response to ad images");
-  const uploadResponse = await axios.post(uploadUrl, formData, {
-    headers: formData.getHeaders()
-  });
+  try {
+    const uploadResponse = await axios.post(uploadUrl, formData, {
+      headers: formData.getHeaders()
+    });
+    console.log("after upload response to ad images");
+  } catch (err) {
+    console.error("Failed to upload image to Meta AdImages endpoint");
+
+    if (err.response) {
+      console.error("Status:", err.response.status);
+      console.error("Headers:", err.response.headers);
+      console.error("Data:", err.response.data);
+    } else if (err.request) {
+      console.error("No response received from Meta AdImages endpoint");
+      console.error("Request:", err.request);
+    } else {
+      console.error("Error setting up the request:", err.message);
+    }
+
+    throw err; // rethrow for upstream catch
+  }
+
   console.log("after upload response to ad images");
   const imagesInfo = uploadResponse.data.images;
   const filenameKey = Object.keys(imagesInfo)[0];
