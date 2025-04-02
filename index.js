@@ -362,7 +362,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
 async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative) {
   const file = req.files.imageFile && req.files.imageFile[0];
   const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
-
+  console.log("reached video process");
   const videoFormData = new FormData();
   videoFormData.append('access_token', token);
   videoFormData.append('source', fs.createReadStream(file.path), {
@@ -372,6 +372,7 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
   const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
     headers: videoFormData.getHeaders()
   });
+  console.log("video processed succesfully");
   const videoId = videoUploadResponse.data.id;
 
   // Wait for processing only if dynamic creative is used
@@ -389,10 +390,12 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     filename: thumbnailFile.originalname,
     contentType: thumbnailFile.mimetype
   });
+  console.log("reached thumbnail");
   const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
   const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
     headers: thumbFormData.getHeaders()
   });
+  console.log("thumbnail processed");
   const imagesInfo = thumbUploadResponse.data.images;
   const thumbKey = Object.keys(imagesInfo)[0];
   const thumbnailHash = imagesInfo[thumbKey].hash;
