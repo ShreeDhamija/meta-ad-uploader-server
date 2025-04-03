@@ -55,7 +55,7 @@ let userData = {};
  * Step 1: Facebook Login - Redirect to Facebook OAuth
  */
 app.get('/auth/facebook', (req, res) => {
-  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,pages_manage_ads&response_type=code`;
+  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list&response_type=code`;
   res.redirect(redirectUri);
 });
 
@@ -362,7 +362,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
 async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative) {
   const file = req.files.imageFile && req.files.imageFile[0];
   const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
-  console.log("reached video process");
+
   const videoFormData = new FormData();
   videoFormData.append('access_token', token);
   videoFormData.append('source', fs.createReadStream(file.path), {
@@ -372,7 +372,6 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
   const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
     headers: videoFormData.getHeaders()
   });
-  console.log("video processed succesfully");
   const videoId = videoUploadResponse.data.id;
 
   // Wait for processing only if dynamic creative is used
@@ -390,12 +389,10 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     filename: thumbnailFile.originalname,
     contentType: thumbnailFile.mimetype
   });
-  console.log("reached thumbnail");
   const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
   const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
     headers: thumbFormData.getHeaders()
   });
-  console.log("thumbnail processed");
   const imagesInfo = thumbUploadResponse.data.images;
   const thumbKey = Object.keys(imagesInfo)[0];
   const thumbnailHash = imagesInfo[thumbKey].hash;
@@ -435,39 +432,16 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
 async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative) {
   const file = req.files.imageFile && req.files.imageFile[0];
   const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-  console.log("BODY in helper", req.body);
-  console.log("FILES in helper", req.files);
-  console.log("token in helper", token);
+
   const formData = new FormData();
   formData.append('access_token', token);
   formData.append('file', fs.createReadStream(file.path), {
     filename: file.originalname,
     contentType: file.mimetype
   });
-  console.log("before upload response to ad images");
-  try {
-    const uploadResponse = await axios.post(uploadUrl, formData, {
-      headers: formData.getHeaders()
-    });
-    console.log("after upload response to ad images");
-  } catch (err) {
-    console.error("Failed to upload image to Meta AdImages endpoint");
-
-    if (err.response) {
-      console.error("Status:", err.response.status);
-      console.error("Headers:", err.response.headers);
-      console.error("Data:", err.response.data);
-    } else if (err.request) {
-      console.error("No response received from Meta AdImages endpoint");
-      console.error("Request:", err.request);
-    } else {
-      console.error("Error setting up the request:", err.message);
-    }
-
-    throw err; // rethrow for upstream catch
-  }
-
-  console.log("after upload response to ad images");
+  const uploadResponse = await axios.post(uploadUrl, formData, {
+    headers: formData.getHeaders()
+  });
   const imagesInfo = uploadResponse.data.images;
   const filenameKey = Object.keys(imagesInfo)[0];
   const imageHash = imagesInfo[filenameKey].hash;
@@ -484,7 +458,6 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     descriptionsArray,
     useDynamicCreative
   });
-  console.log("reached helper post request");
   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
@@ -510,7 +483,6 @@ app.post(
     { name: 'thumbnail', maxCount: 1 }           // For non-dynamic creative video thumbnail
   ]),
   async (req, res) => {
-    console.log("reached create ad");
     const token = req.session.accessToken;
     if (!token) return res.status(401).json({ error: 'User not authenticated' });
 
@@ -518,8 +490,7 @@ app.post(
       // Extract basic fields and parse creative text fields.
       const { adName, adSetId, pageId, link, cta, adAccountId } = req.body;
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
-      console.log("BODY", req.body);
-      console.log("FILES", req.files);
+
       const parseField = (field, fallback) => {
         try { return JSON.parse(field); } catch (e) { return fallback ? [fallback] : []; }
       };
@@ -532,8 +503,6 @@ app.post(
       const adSetInfoResponse = await axios.get(adSetInfoUrl, {
         params: { access_token: token, fields: 'is_dynamic_creative' }
       });
-      console.log("Access token", token);
-
       const adSetDynamicCreative = adSetInfoResponse.data.is_dynamic_creative;
       const useDynamicCreative =
         headlines.length > 1 ||
