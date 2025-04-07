@@ -151,7 +151,12 @@ app.get('/auth/callback', async (req, res) => {
 
     const { id: facebookId, name, email } = meResponse.data;
 
-    req.session.user = { name };
+    req.session.user = {
+      name,
+      facebookId, // ✅ this is critical
+      email
+    };
+
 
     // ✅ 4. Firestore Integration — add or update user
     const userRef = db.collection("users").doc(facebookId);
