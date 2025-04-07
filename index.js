@@ -64,57 +64,13 @@ app.get('/auth/facebook', (req, res) => {
 /**
  * Step 2: Handle Facebook OAuth Callback
  */
-// app.get('/auth/callback', async (req, res) => {
-//   const { code } = req.query;
-//   if (!code) {
-//     return res.status(400).json({ error: 'Authorization code missing' });
-//   }
-//   try {
-//     // Exchange the authorization code for an access token
-//     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
-//       params: {
-//         client_id: process.env.META_APP_ID,
-//         client_secret: process.env.META_APP_SECRET,
-//         redirect_uri: 'https://meta-ad-uploader-server-production.up.railway.app/auth/callback',
-//         code: code
-//       }
-//     });
-//     const { access_token: shortLivedToken } = tokenResponse.data;
-//     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
-//       params: {
-//         grant_type: 'fb_exchange_token',
-//         client_id: process.env.META_APP_ID,
-//         client_secret: process.env.META_APP_SECRET,
-//         fb_exchange_token: shortLivedToken
-//       }
-//     });
-//     const { access_token: longLivedToken } = longLivedResponse.data;
-//     req.session.accessToken = longLivedToken;
-//     userData.accessToken = longLivedToken;
-//     req.session.user = {
-//       name: (await axios.get('https://graph.facebook.com/v21.0/me', {
-//         params: {
-//           access_token: longLivedToken,
-//           fields: 'name'
-//         }
-//       })).data.name
-//     };
-//     res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
-//   } catch (error) {
-//     console.error('OAuth Callback Error:', error.response?.data || error.message);
-//     res.status(500).json({ error: 'Failed to complete Facebook Login' });
-//   }
-// });
-
-
 app.get('/auth/callback', async (req, res) => {
   const { code } = req.query;
   if (!code) {
     return res.status(400).json({ error: 'Authorization code missing' });
   }
-
   try {
-    // 1. Exchange for short-lived token
+    // Exchange the authorization code for an access token
     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
       params: {
         client_id: process.env.META_APP_ID,
@@ -123,10 +79,7 @@ app.get('/auth/callback', async (req, res) => {
         code: code
       }
     });
-
     const { access_token: shortLivedToken } = tokenResponse.data;
-
-    // 2. Exchange for long-lived token
     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
       params: {
         grant_type: 'fb_exchange_token',
@@ -135,55 +88,102 @@ app.get('/auth/callback', async (req, res) => {
         fb_exchange_token: shortLivedToken
       }
     });
-
     const { access_token: longLivedToken } = longLivedResponse.data;
-
-    // 3. Store token in session + fetch user info
     req.session.accessToken = longLivedToken;
     userData.accessToken = longLivedToken;
-
-    const meResponse = await axios.get('https://graph.facebook.com/v21.0/me', {
-      params: {
-        access_token: longLivedToken,
-        fields: 'id,name,email'
-      }
-    });
-
-    const { id: facebookId, name, email } = meResponse.data;
-
-    req.session.user = { name };
-
-    // ✅ 4. Firestore Integration — add or update user
-    const userRef = db.collection("users").doc(facebookId);
-    const userDoc = await userRef.get();
-
-    if (!userDoc.exists) {
-      await userRef.set({
-        name,
-        email,
-        accessToken: longLivedToken,
-        createdAt: new Date(),
-        hasCompletedSignup: true,
-        preferences: {
-          checkboxA: false,
-          dropdownValue: "default",
-          textField: ""
+    req.session.user = {
+      name: (await axios.get('https://graph.facebook.com/v21.0/me', {
+        params: {
+          access_token: longLivedToken,
+          fields: 'name'
         }
-      });
-      console.log("New user added to Firestore:", facebookId);
-    } else {
-      await userRef.update({ accessToken: longLivedToken });
-      console.log("User already existed, token updated:", facebookId);
-    }
-
-    // 5. Final redirect
+      })).data.name
+    };
     res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
-
   } catch (error) {
     console.error('OAuth Callback Error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to complete Facebook Login' });
   }
 });
+
+
+// app.get('/auth/callback', async (req, res) => {
+//   const { code } = req.query;
+//   if (!code) {
+//     return res.status(400).json({ error: 'Authorization code missing' });
+//   }
+
+//   try {
+//     // 1. Exchange for short-lived token
+//     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
+//       params: {
+//         client_id: process.env.META_APP_ID,
+//         client_secret: process.env.META_APP_SECRET,
+//         redirect_uri: 'https://meta-ad-uploader-server-production.up.railway.app/auth/callback',
+//         code: code
+//       }
+//     });
+
+//     const { access_token: shortLivedToken } = tokenResponse.data;
+
+//     // 2. Exchange for long-lived token
+//     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
+//       params: {
+//         grant_type: 'fb_exchange_token',
+//         client_id: process.env.META_APP_ID,
+//         client_secret: process.env.META_APP_SECRET,
+//         fb_exchange_token: shortLivedToken
+//       }
+//     });
+
+//     const { access_token: longLivedToken } = longLivedResponse.data;
+
+//     // 3. Store token in session + fetch user info
+//     req.session.accessToken = longLivedToken;
+//     userData.accessToken = longLivedToken;
+
+//     const meResponse = await axios.get('https://graph.facebook.com/v21.0/me', {
+//       params: {
+//         access_token: longLivedToken,
+//         fields: 'id,name,email'
+//       }
+//     });
+
+//     const { id: facebookId, name, email } = meResponse.data;
+
+//     req.session.user = { name };
+
+//     // ✅ 4. Firestore Integration — add or update user
+//     const userRef = db.collection("users").doc(facebookId);
+//     const userDoc = await userRef.get();
+
+//     if (!userDoc.exists) {
+//       await userRef.set({
+//         name,
+//         email,
+//         accessToken: longLivedToken,
+//         createdAt: new Date(),
+//         hasCompletedSignup: true,
+//         preferences: {
+//           checkboxA: false,
+//           dropdownValue: "default",
+//           textField: ""
+//         }
+//       });
+//       console.log("New user added to Firestore:", facebookId);
+//     } else {
+//       await userRef.update({ accessToken: longLivedToken });
+//       console.log("User already existed, token updated:", facebookId);
+//     }
+
+//     // 5. Final redirect
+//     res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
+
+//   } catch (error) {
+//     console.error('OAuth Callback Error:', error.response?.data || error.message);
+//     res.status(500).json({ error: 'Failed to complete Facebook Login' });
+//   }
+// });
 
 
 /**
