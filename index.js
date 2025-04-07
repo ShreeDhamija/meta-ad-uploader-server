@@ -57,54 +57,9 @@ let userData = {};
  * Step 1: Facebook Login - Redirect to Facebook OAuth
  */
 app.get('/auth/facebook', (req, res) => {
-  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list&response_type=code`;
+  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email&response_type=code`;
   res.redirect(redirectUri);
 });
-
-/**
- * Step 2: Handle Facebook OAuth Callback
- */
-// app.get('/auth/callback', async (req, res) => {
-//   const { code } = req.query;
-//   if (!code) {
-//     return res.status(400).json({ error: 'Authorization code missing' });
-//   }
-//   try {
-//     // Exchange the authorization code for an access token
-//     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
-//       params: {
-//         client_id: process.env.META_APP_ID,
-//         client_secret: process.env.META_APP_SECRET,
-//         redirect_uri: 'https://meta-ad-uploader-server-production.up.railway.app/auth/callback',
-//         code: code
-//       }
-//     });
-//     const { access_token: shortLivedToken } = tokenResponse.data;
-//     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
-//       params: {
-//         grant_type: 'fb_exchange_token',
-//         client_id: process.env.META_APP_ID,
-//         client_secret: process.env.META_APP_SECRET,
-//         fb_exchange_token: shortLivedToken
-//       }
-//     });
-//     const { access_token: longLivedToken } = longLivedResponse.data;
-//     req.session.accessToken = longLivedToken;
-//     userData.accessToken = longLivedToken;
-//     req.session.user = {
-//       name: (await axios.get('https://graph.facebook.com/v21.0/me', {
-//         params: {
-//           access_token: longLivedToken,
-//           fields: 'name'
-//         }
-//       })).data.name
-//     };
-//     res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
-//   } catch (error) {
-//     console.error('OAuth Callback Error:', error.response?.data || error.message);
-//     res.status(500).json({ error: 'Failed to complete Facebook Login' });
-//   }
-// });
 
 
 app.get('/auth/callback', async (req, res) => {
@@ -145,7 +100,7 @@ app.get('/auth/callback', async (req, res) => {
     const meResponse = await axios.get('https://graph.facebook.com/v21.0/me', {
       params: {
         access_token: longLivedToken,
-        fields: 'id,name,email'
+        fields: 'id,name,email,picture'
       }
     });
 
@@ -191,17 +146,6 @@ app.get('/auth/callback', async (req, res) => {
 });
 
 
-/**
- * Fetch Ad Accounts
- */
-// app.get('/auth/me', (req, res) => {
-//   if (req.session && req.session.user) {
-//     res.json({ user: req.session.user });
-//   } else {
-//     res.status(401).json({ error: 'Not authenticated' });
-//   }
-// });
-
 app.get("/auth/me", async (req, res) => {
   const sessionUser = req.session.user;
 
@@ -226,6 +170,7 @@ app.get("/auth/me", async (req, res) => {
         email: userData.email,
         preferences: userData.preferences || {},
         hasCompletedSignup: userData.hasCompletedSignup,
+        profilePicUrl: userData.picture?.data?.url
       },
     });
   } catch (err) {
