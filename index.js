@@ -189,45 +189,46 @@ app.get('/auth/callback', async (req, res) => {
 /**
  * Fetch Ad Accounts
  */
-app.get('/auth/me', (req, res) => {
-  if (req.session && req.session.user) {
-    res.json({ user: req.session.user });
-  } else {
-    res.status(401).json({ error: 'Not authenticated' });
+// app.get('/auth/me', (req, res) => {
+//   if (req.session && req.session.user) {
+//     res.json({ user: req.session.user });
+//   } else {
+//     res.status(401).json({ error: 'Not authenticated' });
+//   }
+// });
+
+app.get("/auth/me", async (req, res) => {
+  const sessionUser = req.session.user;
+
+  if (!sessionUser) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  try {
+    // Optional: refresh user data from Firestore using Facebook ID as the doc ID
+    const userDoc = await db.collection("users").doc(sessionUser.facebookId).get();
+
+    if (!userDoc.exists) {
+      return res.status(401).json({ error: "User not found in database" });
+    }
+
+    const userData = userDoc.data();
+
+    // You can still use the session user if you want, or return a fresh object:
+    return res.json({
+      user: {
+        name: userData.name,
+        email: userData.email,
+        preferences: userData.preferences || {},
+        hasCompletedSignup: userData.hasCompletedSignup,
+      },
+    });
+  } catch (err) {
+    console.error("Error in /auth/me:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// app.get("/auth/me", async (req, res) => {
-//   const { userId } = req.session;
-
-//   // Not logged in
-//   if (!userId) {
-//     return res.json({ loggedIn: true });
-//   }
-
-//   try {
-//     const userDoc = await db.collection("users").doc(userId).get();
-
-//     if (!userDoc.exists) {
-//       return res.json({ loggedIn: true });
-//     }
-
-//     const userData = userDoc.data();
-
-//     res.json({
-//       loggedIn: true,
-//       user: {
-//         name: userData.name,
-//         email: userData.email,
-//         hasCompletedSignup: userData.hasCompletedSignup,
-//         preferences: userData.preferences || {},
-//       },
-//     });
-//   } catch (err) {
-//     console.error("Error fetching user from Firestore:", err);
-//     res.status(500).json({ loggedIn: false, error: "Internal server error" });
-//   }
-// });
 
 app.get('/auth/fetch-ad-accounts', async (req, res) => {
   const token = req.session.accessToken;
