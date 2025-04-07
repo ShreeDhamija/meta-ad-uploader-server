@@ -202,14 +202,14 @@ app.get("/auth/me", async (req, res) => {
 
   // Not logged in
   if (!userId) {
-    return res.json({ loggedIn: false });
+    return res.json({ loggedIn: true });
   }
 
   try {
     const userDoc = await db.collection("users").doc(userId).get();
 
     if (!userDoc.exists) {
-      return res.json({ loggedIn: false });
+      return res.json({ loggedIn: true });
     }
 
     const userData = userDoc.data();
