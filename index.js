@@ -107,42 +107,53 @@ app.get('/auth/facebook', (req, res) => {
 // });
 
 
-app.get("/auth/callback", async (req, res) => {
+app.get('/auth/callback', async (req, res) => {
+  const { code } = req.query;
+  if (!code) {
+    return res.status(400).json({ error: 'Authorization code missing' });
+  }
+
   try {
-    const code = req.query.code;
-
-    const tokenResponse = await axios.get("https://graph.facebook.com/v21.0/oauth/access_token", {
+    // 1. Exchange for short-lived token
+    const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
       params: {
-        client_id: process.env.FACEBOOK_APP_ID,
-        client_secret: process.env.FACEBOOK_APP_SECRET,
-        redirect_uri: process.env.FACEBOOK_REDIRECT_URI,
-        code,
-      },
+        client_id: process.env.META_APP_ID,
+        client_secret: process.env.META_APP_SECRET,
+        redirect_uri: 'https://meta-ad-uploader-server-production.up.railway.app/auth/callback',
+        code: code
+      }
     });
 
-    const shortLivedToken = tokenResponse.data.access_token;
+    const { access_token: shortLivedToken } = tokenResponse.data;
 
-    const longLivedTokenResponse = await axios.get("https://graph.facebook.com/v21.0/oauth/access_token", {
+    // 2. Exchange for long-lived token
+    const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
       params: {
-        grant_type: "fb_exchange_token",
-        client_id: process.env.FACEBOOK_APP_ID,
-        client_secret: process.env.FACEBOOK_APP_SECRET,
-        fb_exchange_token: shortLivedToken,
-      },
+        grant_type: 'fb_exchange_token',
+        client_id: process.env.META_APP_ID,
+        client_secret: process.env.META_APP_SECRET,
+        fb_exchange_token: shortLivedToken
+      }
     });
 
-    const longLivedToken = longLivedTokenResponse.data.access_token;
+    const { access_token: longLivedToken } = longLivedResponse.data;
 
-    const meResponse = await axios.get("https://graph.facebook.com/v21.0/me", {
+    // 3. Store token in session + fetch user info
+    req.session.accessToken = longLivedToken;
+    userData.accessToken = longLivedToken;
+
+    const meResponse = await axios.get('https://graph.facebook.com/v21.0/me', {
       params: {
         access_token: longLivedToken,
-        fields: "id,name,email",
-      },
+        fields: 'id,name,email'
+      }
     });
 
     const { id: facebookId, name, email } = meResponse.data;
 
-    // Save or update user in Firestore
+    req.session.user = { name };
+
+    // ✅ 4. Firestore Integration — add or update user
     const userRef = db.collection("users").doc(facebookId);
     const userDoc = await userRef.get();
 
@@ -156,29 +167,21 @@ app.get("/auth/callback", async (req, res) => {
         preferences: {
           checkboxA: false,
           dropdownValue: "default",
-          textField: "",
-        },
+          textField: ""
+        }
       });
-      console.log("New user created in Firestore:", facebookId);
+      console.log("New user added to Firestore:", facebookId);
     } else {
-      await userRef.update({
-        accessToken: longLivedToken, // optional: keep latest token
-      });
-      console.log("User already exists:", facebookId);
+      await userRef.update({ accessToken: longLivedToken });
+      console.log("User already existed, token updated:", facebookId);
     }
 
-    req.session.userId = facebookId;
+    // 5. Final redirect
+    res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
 
-    const userData = (await userRef.get()).data();
-
-    if (!userData.hasCompletedSignup) {
-      return res.redirect(`${process.env.CLIENT_URL}/signup`);
-    }
-
-    return res.redirect(`${process.env.CLIENT_URL}/`);
   } catch (error) {
-    console.error("Facebook Auth Error:", error.message);
-    return res.status(500).send("Authentication failed");
+    console.error('OAuth Callback Error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to complete Facebook Login' });
   }
 });
 
