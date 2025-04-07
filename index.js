@@ -104,7 +104,7 @@ app.get('/auth/callback', async (req, res) => {
       }
     });
 
-    const { id: facebookId, name, email } = meResponse.data;
+    const { id: facebookId, name, email, picture } = meResponse.data;
 
     req.session.user = {
       name,
@@ -120,6 +120,7 @@ app.get('/auth/callback', async (req, res) => {
     if (!userDoc.exists) {
       await userRef.set({
         name,
+        picture,
         email: email || null,
         accessToken: longLivedToken,
         createdAt: new Date(),
@@ -162,7 +163,7 @@ app.get("/auth/me", async (req, res) => {
     }
 
     const userData = userDoc.data();
-    console.log("Auth response:", userData);
+
 
 
     // You can still use the session user if you want, or return a fresh object:
