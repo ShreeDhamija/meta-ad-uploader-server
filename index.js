@@ -162,6 +162,8 @@ app.get("/auth/me", async (req, res) => {
     }
 
     const userData = userDoc.data();
+    console.log("Auth response:", userData);
+
 
     // You can still use the session user if you want, or return a fresh object:
     return res.json({
@@ -170,7 +172,7 @@ app.get("/auth/me", async (req, res) => {
         email: userData.email,
         preferences: userData.preferences || {},
         hasCompletedSignup: userData.hasCompletedSignup,
-        profilePicUrl: userData.picture?.data?.url
+        profilePicUrl: userData.picture?.data?.url || "",
       },
     });
   } catch (err) {
