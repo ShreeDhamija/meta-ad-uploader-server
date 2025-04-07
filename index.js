@@ -8,6 +8,8 @@ const dotenvResult = require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const app = express();
+const { db } = require("./firebase");
+
 
 // Parse JSON bodies
 app.use(express.json());
@@ -62,56 +64,165 @@ app.get('/auth/facebook', (req, res) => {
 /**
  * Step 2: Handle Facebook OAuth Callback
  */
-app.get('/auth/callback', async (req, res) => {
-  const { code } = req.query;
-  if (!code) {
-    return res.status(400).json({ error: 'Authorization code missing' });
-  }
+// app.get('/auth/callback', async (req, res) => {
+//   const { code } = req.query;
+//   if (!code) {
+//     return res.status(400).json({ error: 'Authorization code missing' });
+//   }
+//   try {
+//     // Exchange the authorization code for an access token
+//     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
+//       params: {
+//         client_id: process.env.META_APP_ID,
+//         client_secret: process.env.META_APP_SECRET,
+//         redirect_uri: 'https://meta-ad-uploader-server-production.up.railway.app/auth/callback',
+//         code: code
+//       }
+//     });
+//     const { access_token: shortLivedToken } = tokenResponse.data;
+//     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
+//       params: {
+//         grant_type: 'fb_exchange_token',
+//         client_id: process.env.META_APP_ID,
+//         client_secret: process.env.META_APP_SECRET,
+//         fb_exchange_token: shortLivedToken
+//       }
+//     });
+//     const { access_token: longLivedToken } = longLivedResponse.data;
+//     req.session.accessToken = longLivedToken;
+//     userData.accessToken = longLivedToken;
+//     req.session.user = {
+//       name: (await axios.get('https://graph.facebook.com/v21.0/me', {
+//         params: {
+//           access_token: longLivedToken,
+//           fields: 'name'
+//         }
+//       })).data.name
+//     };
+//     res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
+//   } catch (error) {
+//     console.error('OAuth Callback Error:', error.response?.data || error.message);
+//     res.status(500).json({ error: 'Failed to complete Facebook Login' });
+//   }
+// });
+
+
+app.get("/auth/callback", async (req, res) => {
   try {
-    // Exchange the authorization code for an access token
-    const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
+    const code = req.query.code;
+
+    const tokenResponse = await axios.get("https://graph.facebook.com/v21.0/oauth/access_token", {
       params: {
-        client_id: process.env.META_APP_ID,
-        client_secret: process.env.META_APP_SECRET,
-        redirect_uri: 'https://meta-ad-uploader-server-production.up.railway.app/auth/callback',
-        code: code
-      }
+        client_id: process.env.FACEBOOK_APP_ID,
+        client_secret: process.env.FACEBOOK_APP_SECRET,
+        redirect_uri: process.env.FACEBOOK_REDIRECT_URI,
+        code,
+      },
     });
-    const { access_token: shortLivedToken } = tokenResponse.data;
-    const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
+
+    const shortLivedToken = tokenResponse.data.access_token;
+
+    const longLivedTokenResponse = await axios.get("https://graph.facebook.com/v21.0/oauth/access_token", {
       params: {
-        grant_type: 'fb_exchange_token',
-        client_id: process.env.META_APP_ID,
-        client_secret: process.env.META_APP_SECRET,
-        fb_exchange_token: shortLivedToken
-      }
+        grant_type: "fb_exchange_token",
+        client_id: process.env.FACEBOOK_APP_ID,
+        client_secret: process.env.FACEBOOK_APP_SECRET,
+        fb_exchange_token: shortLivedToken,
+      },
     });
-    const { access_token: longLivedToken } = longLivedResponse.data;
-    req.session.accessToken = longLivedToken;
-    userData.accessToken = longLivedToken;
-    req.session.user = {
-      name: (await axios.get('https://graph.facebook.com/v21.0/me', {
-        params: {
-          access_token: longLivedToken,
-          fields: 'name'
-        }
-      })).data.name
-    };
-    res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
+
+    const longLivedToken = longLivedTokenResponse.data.access_token;
+
+    const meResponse = await axios.get("https://graph.facebook.com/v21.0/me", {
+      params: {
+        access_token: longLivedToken,
+        fields: "id,name,email",
+      },
+    });
+
+    const { id: facebookId, name, email } = meResponse.data;
+
+    // Save or update user in Firestore
+    const userRef = db.collection("users").doc(facebookId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      await userRef.set({
+        name,
+        email,
+        accessToken: longLivedToken,
+        createdAt: new Date(),
+        hasCompletedSignup: true,
+        preferences: {
+          checkboxA: false,
+          dropdownValue: "default",
+          textField: "",
+        },
+      });
+      console.log("New user created in Firestore:", facebookId);
+    } else {
+      await userRef.update({
+        accessToken: longLivedToken, // optional: keep latest token
+      });
+      console.log("User already exists:", facebookId);
+    }
+
+    req.session.userId = facebookId;
+
+    const userData = (await userRef.get()).data();
+
+    if (!userData.hasCompletedSignup) {
+      return res.redirect(`${process.env.CLIENT_URL}/signup`);
+    }
+
+    return res.redirect(`${process.env.CLIENT_URL}/`);
   } catch (error) {
-    console.error('OAuth Callback Error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to complete Facebook Login' });
+    console.error("Facebook Auth Error:", error.message);
+    return res.status(500).send("Authentication failed");
   }
 });
+
 
 /**
  * Fetch Ad Accounts
  */
-app.get('/auth/me', (req, res) => {
-  if (req.session && req.session.user) {
-    res.json({ user: req.session.user });
-  } else {
-    res.status(401).json({ error: 'Not authenticated' });
+// app.get('/auth/me', (req, res) => {
+//   if (req.session && req.session.user) {
+//     res.json({ user: req.session.user });
+//   } else {
+//     res.status(401).json({ error: 'Not authenticated' });
+//   }
+// });
+
+app.get("/auth/me", async (req, res) => {
+  const { userId } = req.session;
+
+  // Not logged in
+  if (!userId) {
+    return res.json({ loggedIn: false });
+  }
+
+  try {
+    const userDoc = await db.collection("users").doc(userId).get();
+
+    if (!userDoc.exists) {
+      return res.json({ loggedIn: false });
+    }
+
+    const userData = userDoc.data();
+
+    res.json({
+      loggedIn: true,
+      user: {
+        name: userData.name,
+        email: userData.email,
+        hasCompletedSignup: userData.hasCompletedSignup,
+        preferences: userData.preferences || {},
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching user from Firestore:", err);
+    res.status(500).json({ loggedIn: false, error: "Internal server error" });
   }
 });
 
