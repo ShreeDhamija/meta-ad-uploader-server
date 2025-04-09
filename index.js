@@ -323,7 +323,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
               const igDetailsRes = await axios.get(`https://graph.facebook.com/v21.0/${igAccountId}`, {
                 params: {
                   access_token: page.access_token,
-                  fields: 'username,profile_picture_url',
+                  fields: 'username,profile_pic',
                 },
               })
 
