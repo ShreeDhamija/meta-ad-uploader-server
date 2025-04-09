@@ -317,19 +317,42 @@ app.get('/auth/fetch-pages', async (req, res) => {
 
           if (igAccountId) {
             // ✅ 3. Optionally fetch IG account details (username, profile pic)
-            const igDetailsRes = await axios.get(`https://graph.facebook.com/v21.0/${igAccountId}`, {
-              params: {
-                access_token: page.access_token,
-                fields: 'username,profile_picture_url',
-              },
-            })
 
-            instagramAccount = {
-              id: igAccountId,
-              username: igDetailsRes.data?.username || null,
-              profilePictureUrl: igDetailsRes.data?.profile_picture_url || null,
+
+            try {
+              const igDetailsRes = await axios.get(`https://graph.facebook.com/v21.0/${igAccountId}`, {
+                params: {
+                  access_token: page.access_token,
+                  fields: 'username,profile_picture_url',
+                },
+              })
+
+              console.log("Raw IG details response:", igDetailsRes.data)
+
+              instagramAccount = {
+                id: igAccountId,
+                username: igDetailsRes.data?.username || null,
+                profilePictureUrl: igDetailsRes.data?.profile_picture_url || null,
+              }
+
+              console.log(` IG details for page ${page.id}:`, instagramAccount)
+
+            } catch (err) {
+              console.error(` Failed to fetch IG details for IG ID ${igAccountId} (page ${page.id}):`)
+
+              if (err.response) {
+                // The API responded with an error (not 2xx)
+                console.error("Response status:", err.response.status)
+                console.error("Response data:", err.response.data)
+              } else if (err.request) {
+                // No response was received
+                console.error("No response received:", err.request)
+              } else {
+                // Something else happened setting up the request
+                console.error("Error message:", err.message)
+              }
             }
-            console.log(`✅ IG details for page ${page.id}:`, instagramAccount)
+
 
           }
           else {
