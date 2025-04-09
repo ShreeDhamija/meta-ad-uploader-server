@@ -332,7 +332,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
               instagramAccount = {
                 id: igAccountId,
                 username: igDetailsRes.data?.username || null,
-                profilePictureUrl: igDetailsRes.data?.profile_picture_url || null,
+                profilePictureUrl: igDetailsRes.data?.profile_pic || null,
               }
 
               console.log(` IG details for page ${page.id}:`, instagramAccount)
