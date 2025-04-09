@@ -288,29 +288,66 @@ app.get('/auth/fetch-pages', async (req, res) => {
     // 🔄 Fetch profile pictures using /{pageId}/picture?redirect=false
     const pagesWithPictures = await Promise.all(
       pages.map(async (page) => {
+        let profilePicture = null
+        let instagramAccount = null
+
         try {
+          // ✅ 1. Fetch Page Profile Picture
           const picRes = await axios.get(`https://graph.facebook.com/v21.0/${page.id}/picture`, {
             params: {
               access_token: page.access_token,
-              redirect: false
-            }
-          });
-
-          const profilePicture = picRes.data?.data?.url || "/Users/shree/Documents/Server Side Batch ad upload/server/public/backup_page_image.png";
-
-          return {
-            ...page,
-            profilePicture
-          };
+              redirect: false,
+            },
+          })
+          profilePicture = picRes.data?.data?.url || "https://yourdomain.com/fallback-icon.png"
         } catch (err) {
-          console.warn(`Failed to fetch profile photo for page ${page.id}:`, err.message);
-          return {
-            ...page,
-            profilePicture: "/Users/shree/Documents/Server Side Batch ad upload/server/public/backup_page_image.png"
-          };
+          console.warn(`Failed to fetch profile picture for page ${page.id}:`, err.message)
+        }
+
+        try {
+          // ✅ 2. Fetch Connected Instagram Business Account
+          const igRes = await axios.get(`https://graph.facebook.com/v21.0/${page.id}/instagram_accounts`, {
+            params: {
+              access_token: page.access_token,
+            },
+          })
+
+          console.log(`IG account data for page ${page.id}:`, JSON.stringify(igRes.data, null, 2))
+          const igAccountId = igRes.data?.data?.[0]?.id
+
+          if (igAccountId) {
+            // ✅ 3. Optionally fetch IG account details (username, profile pic)
+            const igDetailsRes = await axios.get(`https://graph.facebook.com/v21.0/${igAccountId}`, {
+              params: {
+                access_token: page.access_token,
+                fields: 'username,profile_picture_url',
+              },
+            })
+
+            instagramAccount = {
+              id: igAccountId,
+              username: igDetailsRes.data?.username || null,
+              profilePictureUrl: igDetailsRes.data?.profile_picture_url || null,
+            }
+            console.log(`✅ IG details for page ${page.id}:`, instagramAccount)
+
+          }
+          else {
+            console.log(`⚠️ No IG account connected to page ${page.id}`)
+
+          }
+        } catch (err) {
+          console.error(`Failed to fetch IG account for page ${page.id}:`, err.message)
+        }
+
+        return {
+          ...page,
+          profilePicture,
+          instagramAccount, // ✅ sent to frontend
         }
       })
-    );
+    )
+
 
     res.json({ success: true, pages: pagesWithPictures });
 
