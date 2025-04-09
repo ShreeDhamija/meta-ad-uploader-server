@@ -57,7 +57,7 @@ let userData = {};
  * Step 1: Facebook Login - Redirect to Facebook OAuth
  */
 app.get('/auth/facebook', (req, res) => {
-  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email&response_type=code`;
+  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement&response_type=code`;
   res.redirect(redirectUri);
 });
 
@@ -109,7 +109,8 @@ app.get('/auth/callback', async (req, res) => {
     req.session.user = {
       name,
       facebookId, // ✅ this is critical
-      email
+      email,
+      profilePicUrl: picture?.data?.url || ""
     };
 
 
@@ -215,7 +216,7 @@ app.get('/auth/fetch-campaigns', async (req, res) => {
     const campaignsResponse = await axios.get(campaignsUrl, {
       params: {
         access_token: token,
-        fields: 'id,name,status,objective'
+        fields: 'id,name,status,objective,lifetime_budget'
       }
     });
     res.json({ campaigns: campaignsResponse.data.data });
@@ -273,6 +274,7 @@ app.post('/auth/duplicate-adset', async (req, res) => {
 app.get('/auth/fetch-pages', async (req, res) => {
   const token = req.session.accessToken;
   if (!token) return res.status(401).json({ error: 'User not authenticated' });
+
   try {
     const pagesResponse = await axios.get('https://graph.facebook.com/v21.0/me/accounts', {
       params: {
@@ -280,13 +282,44 @@ app.get('/auth/fetch-pages', async (req, res) => {
         fields: 'id,name,access_token'
       }
     });
+
     const pages = pagesResponse.data.data;
-    res.json({ success: true, pages });
+
+    // 🔄 Fetch profile pictures using /{pageId}/picture?redirect=false
+    const pagesWithPictures = await Promise.all(
+      pages.map(async (page) => {
+        try {
+          const picRes = await axios.get(`https://graph.facebook.com/v21.0/${page.id}/picture`, {
+            params: {
+              access_token: page.access_token,
+              redirect: false
+            }
+          });
+
+          const profilePicture = picRes.data?.data?.url || "https://meta-ad-uploader-server-production.up.railway.app/icon.png";
+
+          return {
+            ...page,
+            profilePicture
+          };
+        } catch (err) {
+          console.warn(`Failed to fetch profile photo for page ${page.id}:`, err.message);
+          return {
+            ...page,
+            profilePicture: "https://meta-ad-uploader-server-production.up.railway.app/icon.png"
+          };
+        }
+      })
+    );
+
+    res.json({ success: true, pages: pagesWithPictures });
+
   } catch (error) {
     console.error('Error fetching pages:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch pages' });
   }
 });
+
 
 app.get('/auth/logout', (req, res) => {
   req.session.destroy((err) => {
