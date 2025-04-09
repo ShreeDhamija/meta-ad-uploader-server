@@ -296,7 +296,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
             }
           });
 
-          const profilePicture = picRes.data?.data?.url || "https://meta-ad-uploader-server-production.up.railway.app/icon.png";
+          const profilePicture = picRes.data?.data?.url || "/Users/shree/Documents/Server Side Batch ad upload/server/public/backup_page_image.png";
 
           return {
             ...page,
@@ -306,7 +306,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
           console.warn(`Failed to fetch profile photo for page ${page.id}:`, err.message);
           return {
             ...page,
-            profilePicture: "https://meta-ad-uploader-server-production.up.railway.app/icon.png"
+            profilePicture: "/Users/shree/Documents/Server Side Batch ad upload/server/public/backup_page_image.png"
           };
         }
       })
