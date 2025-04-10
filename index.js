@@ -426,7 +426,13 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
           ...(instagramAccountId && { instagram_actor_id: instagramAccountId }),
         },
         asset_feed_spec: {
-          videos: [{ video_id: videoId, thumbnail_hash: thumbnailHash }],
+          videos: [{
+            video_id: videoId,
+            ...(thumbnailHash
+              ? { thumbnail_hash: thumbnailHash }
+              : { image_url: thumbnailUrl }
+            )
+          }],
           titles: headlines.map(text => ({ text })),
           bodies: messagesArray.map(text => ({ text })),
           descriptions: descriptionsArray.map(text => ({ text })),
@@ -530,43 +536,124 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
 }
 
 // Helper: Handle Video Ad Creation
-async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId) {
-  const file = req.files.imageFile && req.files.imageFile[0];
-  const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
+// async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId) {
+//   const file = req.files.imageFile && req.files.imageFile[0];
+//   const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
 
+//   const videoFormData = new FormData();
+//   videoFormData.append('access_token', token);
+//   videoFormData.append('source', fs.createReadStream(file.path), {
+//     filename: file.originalname,
+//     contentType: file.mimetype
+//   });
+//   const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
+//     headers: videoFormData.getHeaders()
+//   });
+//   const videoId = videoUploadResponse.data.id;
+
+//   // Wait for processing only if dynamic creative is used
+//   if (useDynamicCreative) {
+//     await waitForVideoProcessing(videoId, token);
+//   }
+
+//   const thumbnailFile = req.files.thumbnail && req.files.thumbnail[0];
+//   if (!thumbnailFile) {
+//     throw new Error('Thumbnail file is required for video ads');
+//   }
+//   const thumbFormData = new FormData();
+//   thumbFormData.append('access_token', token);
+//   thumbFormData.append('file', fs.createReadStream(thumbnailFile.path), {
+//     filename: thumbnailFile.originalname,
+//     contentType: thumbnailFile.mimetype
+//   });
+//   const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+//   const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
+//     headers: thumbFormData.getHeaders()
+//   });
+//   const imagesInfo = thumbUploadResponse.data.images;
+//   const thumbKey = Object.keys(imagesInfo)[0];
+//   const thumbnailHash = imagesInfo[thumbKey].hash;
+
+//   const creativePayload = buildVideoCreativePayload({
+//     adName,
+//     adSetId,
+//     pageId,
+//     videoId,
+//     cta,
+//     link,
+//     headlines,
+//     messagesArray,
+//     descriptionsArray,
+//     thumbnailHash,
+//     useDynamicCreative,
+//     instagramAccountId
+//   });
+//   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+//   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
+//     params: { access_token: token }
+//   });
+
+//   // Cleanup files
+//   fs.unlink(file.path, err => {
+//     if (err) console.error("Error deleting video file:", err);
+//     else console.log("Video file deleted:", file.path);
+//   });
+//   fs.unlink(thumbnailFile.path, err => {
+//     if (err) console.error("Error deleting thumbnail file:", err);
+//     else console.log("Thumbnail file deleted:", thumbnailFile.path);
+//   });
+
+//   return createAdResponse.data;
+// }
+
+async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId) {
+  const file = req.files.imageFile?.[0];
+  if (!file) throw new Error('Video file is required');
+
+  const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
   const videoFormData = new FormData();
   videoFormData.append('access_token', token);
   videoFormData.append('source', fs.createReadStream(file.path), {
     filename: file.originalname,
     contentType: file.mimetype
   });
+
   const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
     headers: videoFormData.getHeaders()
   });
+
   const videoId = videoUploadResponse.data.id;
 
-  // Wait for processing only if dynamic creative is used
   if (useDynamicCreative) {
     await waitForVideoProcessing(videoId, token);
   }
 
-  const thumbnailFile = req.files.thumbnail && req.files.thumbnail[0];
-  if (!thumbnailFile) {
-    throw new Error('Thumbnail file is required for video ads');
+  // Handle thumbnail
+  const thumbnailFile = req.files.thumbnail?.[0];
+  let thumbnailHash = null;
+  let thumbnailUrl = null;
+
+  if (thumbnailFile) {
+    const thumbFormData = new FormData();
+    thumbFormData.append('access_token', token);
+    thumbFormData.append('file', fs.createReadStream(thumbnailFile.path), {
+      filename: thumbnailFile.originalname,
+      contentType: thumbnailFile.mimetype
+    });
+
+    const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+    const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
+      headers: thumbFormData.getHeaders()
+    });
+
+    const imagesInfo = thumbUploadResponse.data.images;
+    const key = Object.keys(imagesInfo)[0];
+    thumbnailHash = imagesInfo[key].hash;
+
+    await fs.promises.unlink(thumbnailFile.path).catch(err => console.error("Error deleting thumbnail file:", err));
+  } else {
+    thumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg";
   }
-  const thumbFormData = new FormData();
-  thumbFormData.append('access_token', token);
-  thumbFormData.append('file', fs.createReadStream(thumbnailFile.path), {
-    filename: thumbnailFile.originalname,
-    contentType: thumbnailFile.mimetype
-  });
-  const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-  const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
-    headers: thumbFormData.getHeaders()
-  });
-  const imagesInfo = thumbUploadResponse.data.images;
-  const thumbKey = Object.keys(imagesInfo)[0];
-  const thumbnailHash = imagesInfo[thumbKey].hash;
 
   const creativePayload = buildVideoCreativePayload({
     adName,
@@ -579,26 +666,20 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     messagesArray,
     descriptionsArray,
     thumbnailHash,
+    thumbnailUrl,
     useDynamicCreative,
     instagramAccountId
   });
+
   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
   });
 
-  // Cleanup files
-  fs.unlink(file.path, err => {
-    if (err) console.error("Error deleting video file:", err);
-    else console.log("Video file deleted:", file.path);
-  });
-  fs.unlink(thumbnailFile.path, err => {
-    if (err) console.error("Error deleting thumbnail file:", err);
-    else console.log("Thumbnail file deleted:", thumbnailFile.path);
-  });
-
+  await fs.promises.unlink(file.path).catch(err => console.error("Error deleting video file:", err));
   return createAdResponse.data;
 }
+
 
 // Helper: Handle Image Ad Creation
 async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId) {
@@ -823,16 +904,91 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
 }
 
 // Helper: Process multiple videos for dynamic creative.
-async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray) {
-  const mediaFiles = req.files.mediaFiles;
-  const thumbFile = req.files.thumbnail && req.files.thumbnail[0];
-  if (!thumbFile) {
-    throw new Error("Thumbnail file is required for dynamic video ads");
-  }
+// async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray) {
+//   const mediaFiles = req.files.mediaFiles;
+//   const thumbFile = req.files.thumbnail && req.files.thumbnail[0];
+//   if (!thumbFile) {
+//     throw new Error("Thumbnail file is required for dynamic video ads");
+//   }
 
-  let videoAssets = [];
+//   let videoAssets = [];
+//   for (let i = 0; i < mediaFiles.length; i++) {
+//     const file = mediaFiles[i];
+//     const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
+//     const videoFormData = new FormData();
+//     videoFormData.append('access_token', token);
+//     videoFormData.append('source', fs.createReadStream(file.path), {
+//       filename: file.originalname,
+//       contentType: file.mimetype
+//     });
+//     const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
+//       headers: videoFormData.getHeaders()
+//     });
+//     const videoId = videoUploadResponse.data.id;
+//     await waitForVideoProcessing(videoId, token);
+
+//     // Use the same thumbFile for every video:
+//     const thumbFormData = new FormData();
+//     thumbFormData.append('access_token', token);
+//     thumbFormData.append('file', fs.createReadStream(thumbFile.path), {
+//       filename: thumbFile.originalname,
+//       contentType: thumbFile.mimetype
+//     });
+//     const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+//     const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
+//       headers: thumbFormData.getHeaders()
+//     });
+//     const imagesInfo = thumbUploadResponse.data.images;
+//     const key = Object.keys(imagesInfo)[0];
+//     videoAssets.push({ video_id: videoId, thumbnail_hash: imagesInfo[key].hash });
+
+//     // Clean up video file after processing
+//     await fs.promises.unlink(file.path).catch(err => console.error("Error deleting video file:", err));
+//   }
+
+//   // Clean up the single thumbnail file after all videos have been processed
+//   await fs.promises.unlink(thumbFile.path).catch(err => console.error("Error deleting thumbnail file:", err));
+
+//   const assetFeedSpec = {
+//     videos: videoAssets,
+//     titles: headlines.map(text => ({ text })),
+//     bodies: messagesArray.map(text => ({ text })),
+//     descriptions: descriptionsArray.map(text => ({ text })),
+//     ad_formats: ["SINGLE_VIDEO"],
+//     call_to_action_types: [cta],
+//     link_urls: [{ website_url: link }]
+//   };
+//   const creativePayload = {
+//     name: adName,
+//     adset_id: adSetId,
+//     creative: {
+//       object_story_spec: {
+//         page_id: pageId,
+//         ...(instagramAccountId && { instagram_actor_id: instagramAccountId })
+//       },
+//       asset_feed_spec: assetFeedSpec,
+//       degrees_of_freedom_spec: {
+//         creative_features_spec: { standard_enhancements: { enroll_status: "OPT_OUT" } }
+//       }
+//     },
+//     status: 'ACTIVE'
+//   };
+//   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+//   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
+//   return createAdResponse.data;
+// }
+
+async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId) {
+  const mediaFiles = req.files.mediaFiles;
+  const thumbFile = req.files.thumbnail?.[0];
+  const fallbackThumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg";
+
+  const videoAssets = [];
+
   for (let i = 0; i < mediaFiles.length; i++) {
     const file = mediaFiles[i];
+
+    // Upload video
     const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
     const videoFormData = new FormData();
     videoFormData.append('access_token', token);
@@ -840,33 +996,47 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
       filename: file.originalname,
       contentType: file.mimetype
     });
+
     const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
       headers: videoFormData.getHeaders()
     });
+
     const videoId = videoUploadResponse.data.id;
     await waitForVideoProcessing(videoId, token);
 
-    // Use the same thumbFile for every video:
-    const thumbFormData = new FormData();
-    thumbFormData.append('access_token', token);
-    thumbFormData.append('file', fs.createReadStream(thumbFile.path), {
-      filename: thumbFile.originalname,
-      contentType: thumbFile.mimetype
-    });
-    const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-    const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
-      headers: thumbFormData.getHeaders()
-    });
-    const imagesInfo = thumbUploadResponse.data.images;
-    const key = Object.keys(imagesInfo)[0];
-    videoAssets.push({ video_id: videoId, thumbnail_hash: imagesInfo[key].hash });
+    let thumbnailSource = {};
 
-    // Clean up video file after processing
+    if (thumbFile) {
+      const thumbFormData = new FormData();
+      thumbFormData.append('access_token', token);
+      thumbFormData.append('file', fs.createReadStream(thumbFile.path), {
+        filename: thumbFile.originalname,
+        contentType: thumbFile.mimetype
+      });
+
+      const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+      const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
+        headers: thumbFormData.getHeaders()
+      });
+
+      const imagesInfo = thumbUploadResponse.data.images;
+      const key = Object.keys(imagesInfo)[0];
+      thumbnailSource = { thumbnail_hash: imagesInfo[key].hash };
+    } else {
+      thumbnailSource = { thumbnail_url: fallbackThumbnailUrl };
+    }
+
+    videoAssets.push({
+      video_id: videoId,
+      ...thumbnailSource
+    });
+
     await fs.promises.unlink(file.path).catch(err => console.error("Error deleting video file:", err));
   }
 
-  // Clean up the single thumbnail file after all videos have been processed
-  await fs.promises.unlink(thumbFile.path).catch(err => console.error("Error deleting thumbnail file:", err));
+  if (thumbFile) {
+    await fs.promises.unlink(thumbFile.path).catch(err => console.error("Error deleting thumbnail file:", err));
+  }
 
   const assetFeedSpec = {
     videos: videoAssets,
@@ -877,6 +1047,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     call_to_action_types: [cta],
     link_urls: [{ website_url: link }]
   };
+
   const creativePayload = {
     name: adName,
     adset_id: adSetId,
@@ -892,10 +1063,12 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     },
     status: 'ACTIVE'
   };
+
   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
   return createAdResponse.data;
 }
+
 
 
 const PORT = process.env.PORT || 3000;
