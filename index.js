@@ -462,7 +462,10 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
             message: messagesArray[0],
             title: headlines[0],
             link_description: descriptionsArray[0],
-            image_hash: thumbnailHash
+            ...(thumbnailHash
+              ? { image_hash: thumbnailHash }
+              : { image_url: thumbnailUrl }
+            )
           }
         },
         degrees_of_freedom_spec: {
