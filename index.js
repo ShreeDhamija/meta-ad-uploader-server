@@ -423,7 +423,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+          ...(instagramAccountId && { instagram_actor_id: instagramAccountId }),
         },
         asset_feed_spec: {
           videos: [{ video_id: videoId, thumbnail_hash: thumbnailHash }],
@@ -449,7 +449,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+          ...(instagramAccountId && { instagram_actor_id: instagramAccountId }),
           video_data: {
             video_id: videoId,
             call_to_action: { type: cta, value: { link } },
@@ -479,7 +479,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_user_id: instagramAccountId })
+          ...(instagramAccountId && { instagram_actor_id: instagramAccountId })
         },
         asset_feed_spec: {
           images: [{ hash: imageHash }],
@@ -505,7 +505,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+          ...(instagramAccountId && { instagram_actor_id: instagramAccountId }),
           link_data: {
             name: headlines[0],
             description: descriptionsArray[0],
@@ -580,7 +580,7 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     useDynamicCreative,
     instagramAccountId
   });
-  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
   });
@@ -629,7 +629,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     useDynamicCreative,
     instagramAccountId
   });
-  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
   });
@@ -803,7 +803,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     creative: {
       object_story_spec: {
         page_id: pageId,
-        ...(instagramAccountId && { instagram_user_id: instagramAccountId })
+        ...(instagramAccountId && { instagram_actor_id: instagramAccountId })
       },
       asset_feed_spec: assetFeedSpec,
       degrees_of_freedom_spec: {
@@ -812,7 +812,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     },
     status: 'ACTIVE'
   };
-  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
   return createAdResponse.data;
 }
@@ -878,7 +878,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     creative: {
       object_story_spec: {
         page_id: pageId,
-        ...(instagramAccountId && { instagram_user_id: instagramAccountId })
+        ...(instagramAccountId && { instagram_actor_id: instagramAccountId })
       },
       asset_feed_spec: assetFeedSpec,
       degrees_of_freedom_spec: {
@@ -887,7 +887,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     },
     status: 'ACTIVE'
   };
-  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
   return createAdResponse.data;
 }
