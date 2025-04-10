@@ -499,13 +499,13 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       status: 'ACTIVE'
     };
   } else {
-    return {
+    const finalPayload = {
       name: adName,
       adset_id: adSetId,
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_actor_id: instagramAccountId }),
+          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
           link_data: {
             name: headlines[0],
             description: descriptionsArray[0],
@@ -513,17 +513,45 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
             message: messagesArray[0],
             link: link,
             caption: link,
-            image_hash: imageHash
-          }
+            image_hash: imageHash,
+          },
         },
         degrees_of_freedom_spec: {
           creative_features_spec: {
-            standard_enhancements: { enroll_status: "OPT_OUT" }
-          }
-        }
+            standard_enhancements: { enroll_status: "OPT_OUT" },
+          },
+        },
       },
-      status: 'ACTIVE'
+      status: "ACTIVE",
     };
+
+    console.log("📦 Image Ad Creative Payload:", JSON.stringify(finalPayload, null, 2))
+    return finalPayload;
+    // return {
+    //   name: adName,
+    //   adset_id: adSetId,
+    //   creative: {
+    //     object_story_spec: {
+    //       page_id: pageId,
+    //       ...(instagramAccountId && { instagram_actor_id: instagramAccountId }),
+    //       link_data: {
+    //         name: headlines[0],
+    //         description: descriptionsArray[0],
+    //         call_to_action: { type: cta, value: { link } },
+    //         message: messagesArray[0],
+    //         link: link,
+    //         caption: link,
+    //         image_hash: imageHash
+    //       }
+    //     },
+    //     degrees_of_freedom_spec: {
+    //       creative_features_spec: {
+    //         standard_enhancements: { enroll_status: "OPT_OUT" }
+    //       }
+    //     }
+    //   },
+    //   status: 'ACTIVE'
+    // };
   }
 }
 
@@ -580,6 +608,7 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     useDynamicCreative,
     instagramAccountId
   });
+  console.log(creativePayload);
   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
@@ -812,6 +841,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     },
     status: 'ACTIVE'
   };
+  console.log(creativePayload);
   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
   return createAdResponse.data;
@@ -887,6 +917,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     },
     status: 'ACTIVE'
   };
+  console.log(creativePayload);
   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
   return createAdResponse.data;
