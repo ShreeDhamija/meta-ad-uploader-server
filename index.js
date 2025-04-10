@@ -299,7 +299,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
               redirect: false,
             },
           })
-          profilePicture = picRes.data?.data?.url || "https://yourdomain.com/fallback-icon.png"
+          profilePicture = picRes.data?.data?.url || "https://meta-ad-uploader-server-production.up.railway.app/backup_page_image.png"
         } catch (err) {
           console.warn(`Failed to fetch profile picture for page ${page.id}:`, err.message)
         }
@@ -421,7 +421,10 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       name: adName,
       adset_id: adSetId,
       creative: {
-        object_story_spec: { page_id: pageId },
+        object_story_spec: {
+          page_id: pageId,
+          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+        },
         asset_feed_spec: {
           videos: [{ video_id: videoId, thumbnail_hash: thumbnailHash }],
           titles: headlines.map(text => ({ text })),
@@ -446,6 +449,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       creative: {
         object_story_spec: {
           page_id: pageId,
+          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
           video_data: {
             video_id: videoId,
             call_to_action: { type: cta, value: { link } },
@@ -467,13 +471,16 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
 }
 
 // Helper: Build image creative payload
-function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative }) {
+function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId }) {
   if (useDynamicCreative) {
     return {
       name: adName,
       adset_id: adSetId,
       creative: {
-        object_story_spec: { page_id: pageId },
+        object_story_spec: {
+          page_id: pageId,
+          ...(instagramAccountId && { instagram_user_id: instagramAccountId })
+        },
         asset_feed_spec: {
           images: [{ hash: imageHash }],
           titles: headlines.map(text => ({ text })),
@@ -498,6 +505,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       creative: {
         object_story_spec: {
           page_id: pageId,
+          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
           link_data: {
             name: headlines[0],
             description: descriptionsArray[0],
@@ -520,7 +528,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
 }
 
 // Helper: Handle Video Ad Creation
-async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative) {
+async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId) {
   const file = req.files.imageFile && req.files.imageFile[0];
   const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
 
@@ -569,9 +577,10 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     messagesArray,
     descriptionsArray,
     thumbnailHash,
-    useDynamicCreative
+    useDynamicCreative,
+    instagramAccountId
   });
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
   });
@@ -590,7 +599,7 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
 }
 
 // Helper: Handle Image Ad Creation
-async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative) {
+async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId) {
   const file = req.files.imageFile && req.files.imageFile[0];
   const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
 
@@ -617,9 +626,10 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     headlines,
     messagesArray,
     descriptionsArray,
-    useDynamicCreative
+    useDynamicCreative,
+    instagramAccountId
   });
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
   });
@@ -649,7 +659,7 @@ app.post(
 
     try {
       // Extract basic fields and parse creative text fields.
-      const { adName, adSetId, pageId, link, cta, adAccountId } = req.body;
+      const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId } = req.body;
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
 
       const parseField = (field, fallback) => {
@@ -692,7 +702,8 @@ app.post(
             link,
             headlines,
             messagesArray,
-            descriptionsArray
+            descriptionsArray,
+            instagramAccountId
           );
         } else {
           result = await handleDynamicImageAd(
@@ -706,7 +717,8 @@ app.post(
             link,
             headlines,
             messagesArray,
-            descriptionsArray
+            descriptionsArray,
+            instagramAccountId
           );
         }
       } else {
@@ -726,7 +738,8 @@ app.post(
             headlines,
             messagesArray,
             descriptionsArray,
-            useDynamicCreative
+            useDynamicCreative,
+            instagramAccountId
           );
         } else {
           result = await handleImageAd(
@@ -741,7 +754,8 @@ app.post(
             headlines,
             messagesArray,
             descriptionsArray,
-            useDynamicCreative
+            useDynamicCreative,
+            instagramAccountId
           );
         }
       }
@@ -755,7 +769,7 @@ app.post(
 );
 
 // Helper: Process multiple images for dynamic creative.
-async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray) {
+async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId) {
   const mediaFiles = req.files.mediaFiles;
   let imageHashes = [];
   for (const file of mediaFiles) {
@@ -787,7 +801,10 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     name: adName,
     adset_id: adSetId,
     creative: {
-      object_story_spec: { page_id: pageId },
+      object_story_spec: {
+        page_id: pageId,
+        ...(instagramAccountId && { instagram_user_id: instagramAccountId })
+      },
       asset_feed_spec: assetFeedSpec,
       degrees_of_freedom_spec: {
         creative_features_spec: { standard_enhancements: { enroll_status: "OPT_OUT" } }
@@ -795,7 +812,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     },
     status: 'ACTIVE'
   };
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
   return createAdResponse.data;
 }
@@ -859,7 +876,10 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     name: adName,
     adset_id: adSetId,
     creative: {
-      object_story_spec: { page_id: pageId },
+      object_story_spec: {
+        page_id: pageId,
+        ...(instagramAccountId && { instagram_user_id: instagramAccountId })
+      },
       asset_feed_spec: assetFeedSpec,
       degrees_of_freedom_spec: {
         creative_features_spec: { standard_enhancements: { enroll_status: "OPT_OUT" } }
@@ -867,7 +887,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     },
     status: 'ACTIVE'
   };
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
   return createAdResponse.data;
 }
