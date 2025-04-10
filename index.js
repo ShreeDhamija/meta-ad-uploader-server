@@ -524,34 +524,8 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       },
       status: "ACTIVE",
     };
-
-    console.log("📦 Image Ad Creative Payload:", JSON.stringify(finalPayload, null, 2))
     return finalPayload;
-    // return {
-    //   name: adName,
-    //   adset_id: adSetId,
-    //   creative: {
-    //     object_story_spec: {
-    //       page_id: pageId,
-    //       ...(instagramAccountId && { instagram_actor_id: instagramAccountId }),
-    //       link_data: {
-    //         name: headlines[0],
-    //         description: descriptionsArray[0],
-    //         call_to_action: { type: cta, value: { link } },
-    //         message: messagesArray[0],
-    //         link: link,
-    //         caption: link,
-    //         image_hash: imageHash
-    //       }
-    //     },
-    //     degrees_of_freedom_spec: {
-    //       creative_features_spec: {
-    //         standard_enhancements: { enroll_status: "OPT_OUT" }
-    //       }
-    //     }
-    //   },
-    //   status: 'ACTIVE'
-    // };
+
   }
 }
 
