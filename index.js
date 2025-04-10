@@ -505,7 +505,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+          instagram_user_id: "9673673102661593",
           link_data: {
             name: headlines[0],
             description: descriptionsArray[0],
