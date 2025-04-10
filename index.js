@@ -415,7 +415,7 @@ async function waitForVideoProcessing(videoId, token) {
 }
 
 // Helper: Build video creative payload
-function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, useDynamicCreative, instagramAccountId }) {
+function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, thumbnailUrl, useDynamicCreative, instagramAccountId }) {
   if (useDynamicCreative) {
     return {
       name: adName,
