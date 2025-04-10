@@ -689,6 +689,7 @@ app.post(
     try {
       // Extract basic fields and parse creative text fields.
       const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId } = req.body;
+      console.log("📥 Received instagramAccountId from frontend:", instagramAccountId)
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
 
       const parseField = (field, fallback) => {
