@@ -216,7 +216,7 @@ app.get('/auth/fetch-campaigns', async (req, res) => {
     const campaignsResponse = await axios.get(campaignsUrl, {
       params: {
         access_token: token,
-        fields: 'id,name,status,objective,insights.date_preset(last_30d){spend}',
+        fields: 'id,name,status,insights.date_preset(last_30d){spend}',
 
 
       }
@@ -225,7 +225,7 @@ app.get('/auth/fetch-campaigns', async (req, res) => {
     console.log("Raw campaigns w/insights:", JSON.stringify(campaignsResponse.data.data, null, 2));
 
     const campaigns = campaignsResponse.data.data.map(camp => {
-      const spend = parseFloat(camp.insights?.[0]?.spend || "0");
+      const spend = parseFloat(camp.insights?.data?.[0]?.spend || "0");
       return { ...camp, spend };
     });
 
@@ -338,7 +338,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
                 },
               })
 
-              console.log("Raw IG details response:", igDetailsRes.data)
+
 
               instagramAccount = {
                 id: igAccountId,
@@ -346,7 +346,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
                 profilePictureUrl: igDetailsRes.data?.profile_pic || null,
               }
 
-              console.log(` IG details for page ${page.id}:`, instagramAccount)
+
 
             } catch (err) {
               console.error(` Failed to fetch IG details for IG ID ${igAccountId} (page ${page.id}):`)
@@ -367,7 +367,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
 
           }
           else {
-            console.log(`⚠️ No IG account connected to page ${page.id}`)
+
 
           }
         } catch (err) {
@@ -658,7 +658,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     instagramAccountId
   });
   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
-  console.log(creativePayload);
+
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
   });
@@ -689,7 +689,7 @@ app.post(
     try {
       // Extract basic fields and parse creative text fields.
       const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId } = req.body;
-      console.log("📥 Received instagramAccountId from frontend:", instagramAccountId)
+
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
 
       const parseField = (field, fallback) => {
