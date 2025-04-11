@@ -216,10 +216,15 @@ app.get('/auth/fetch-campaigns', async (req, res) => {
     const campaignsResponse = await axios.get(campaignsUrl, {
       params: {
         access_token: token,
-        fields: 'id,name,status,objective,lifetime_budget'
+        fields: 'id,name,status,objective,insights.date_preset(last_30d){spend}'
       }
     });
-    res.json({ campaigns: campaignsResponse.data.data });
+    const campaigns = campaignsResponse.data.data.map(camp => {
+      const spend = parseFloat(camp.insights?.[0]?.spend || "0");
+      return { ...camp, spend };
+    });
+
+    res.json({ campaigns });
   } catch (error) {
     console.error('Fetch Campaigns Error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch campaigns' });
