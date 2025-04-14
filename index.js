@@ -216,7 +216,7 @@ app.get('/auth/fetch-campaigns', async (req, res) => {
     const campaignsResponse = await axios.get(campaignsUrl, {
       params: {
         access_token: token,
-        fields: 'id,name,status,insights.date_preset(last_30d){spend}',
+        fields: 'id,name,status,insights.date_preset(last_7d){spend}',
 
 
       }
@@ -792,11 +792,22 @@ app.post(
       return res.json(result);
     } catch (error) {
       console.error('Create Ad Error:', error.response?.data || error.message);
+      cleanupUploadedFiles(req.files); // 🧼 cleanup
       const fbErrorMsg = error.response?.data?.error?.error_user_msg || error.message || 'Failed to create ad';
       return res.status(400).send(fbErrorMsg);
     }
   }
 );
+
+function cleanupUploadedFiles(files) {
+  if (!files) return;
+  Object.values(files).flat().forEach(file => {
+    fs.unlink(file.path, err => {
+      if (err) console.error("Failed to clean up file:", file.path, err.message);
+    });
+  });
+}
+
 
 // Helper: Process multiple images for dynamic creative.
 async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId) {
