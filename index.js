@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const app = express();
 const { db } = require("./firebase");
+const { createOrUpdateUser, getUserByFacebookId } = require("./firebaseController")
 
 
 // Parse JSON bodies
@@ -115,28 +116,14 @@ app.get('/auth/callback', async (req, res) => {
 
 
     // ✅ 4. Firestore Integration — add or update user
-    const userRef = db.collection("users").doc(facebookId);
-    const userDoc = await userRef.get();
+    await createOrUpdateUser({
+      facebookId,
+      name,
+      email,
+      picture,
+      accessToken: longLivedToken
+    })
 
-    if (!userDoc.exists) {
-      await userRef.set({
-        name,
-        picture,
-        email: email || null,
-        accessToken: longLivedToken,
-        createdAt: new Date(),
-        hasCompletedSignup: true,
-        preferences: {
-          checkboxA: false,
-          dropdownValue: "default",
-          textField: ""
-        }
-      });
-      console.log("New user added to Firestore:", facebookId);
-    } else {
-      await userRef.update({ accessToken: longLivedToken });
-      console.log("User already existed, token updated:", facebookId);
-    }
 
     // 5. Final redirect
     res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
@@ -149,25 +136,19 @@ app.get('/auth/callback', async (req, res) => {
 
 
 app.get("/auth/me", async (req, res) => {
-  const sessionUser = req.session.user;
+  const sessionUser = req.session.user
 
   if (!sessionUser) {
-    return res.status(401).json({ error: "Not authenticated" });
+    return res.status(401).json({ error: "Not authenticated" })
   }
 
   try {
-    // Optional: refresh user data from Firestore using Facebook ID as the doc ID
-    const userDoc = await db.collection("users").doc(sessionUser.facebookId).get();
+    const userData = await getUserByFacebookId(sessionUser.facebookId)
 
-    if (!userDoc.exists) {
-      return res.status(401).json({ error: "User not found in database" });
+    if (!userData) {
+      return res.status(401).json({ error: "User not found in database" })
     }
 
-    const userData = userDoc.data();
-
-
-
-    // You can still use the session user if you want, or return a fresh object:
     return res.json({
       user: {
         name: userData.name,
@@ -176,12 +157,13 @@ app.get("/auth/me", async (req, res) => {
         hasCompletedSignup: userData.hasCompletedSignup,
         profilePicUrl: userData.picture?.data?.url || "",
       },
-    });
+    })
   } catch (err) {
-    console.error("Error in /auth/me:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error("Error in /auth/me:", err)
+    return res.status(500).json({ error: "Internal server error" })
   }
-});
+})
+
 
 
 app.get('/auth/fetch-ad-accounts', async (req, res) => {
