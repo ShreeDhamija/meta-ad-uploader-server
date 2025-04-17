@@ -13,11 +13,7 @@ async function createOrUpdateUser({ facebookId, name, email, picture, accessToke
             accessToken,
             createdAt: new Date(),
             hasCompletedSignup: true,
-            preferences: {
-                checkboxA: false,
-                dropdownValue: "default",
-                textField: ""
-            }
+
         })
         console.log("New user added to Firestore:", facebookId)
     } else {
