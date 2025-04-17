@@ -13,7 +13,9 @@ const {
   createOrUpdateUser,
   getUserByFacebookId,
   saveGlobalSettings,
-  saveAdAccountSettings
+  saveAdAccountSettings,
+  getGlobalSettings,
+  getAdAccountSettings,
 } = require("./firebaseController");
 
 
@@ -786,6 +788,8 @@ app.post(
   }
 );
 
+
+//fireBase routes
 app.post("/settings/save", async (req, res) => {
   const sessionUser = req.session.user;
   if (!sessionUser) return res.status(401).json({ error: "Not authenticated" });
@@ -808,7 +812,37 @@ app.post("/settings/save", async (req, res) => {
   }
 });
 
+app.get("/settings/global", async (req, res) => {
+  const sessionUser = req.session.user;
+  if (!sessionUser) return res.status(401).json({ error: "Not authenticated" });
 
+  try {
+    const settings = await getGlobalSettings(sessionUser.facebookId);
+    res.json({ settings });
+  } catch (err) {
+    console.error("Global settings fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch global settings" });
+  }
+});
+
+app.get("/settings/ad-account", async (req, res) => {
+  const sessionUser = req.session.user;
+  const { adAccountId } = req.query;
+  if (!sessionUser) return res.status(401).json({ error: "Not authenticated" });
+  if (!adAccountId) return res.status(400).json({ error: "Missing adAccountId" });
+
+  try {
+    const settings = await getAdAccountSettings(sessionUser.facebookId, adAccountId);
+    res.json({ settings });
+  } catch (err) {
+    console.error("Ad account settings fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch ad account settings" });
+  }
+});
+
+
+
+//helper functions
 function cleanupUploadedFiles(files) {
   if (!files) return;
   Object.values(files).flat().forEach(file => {

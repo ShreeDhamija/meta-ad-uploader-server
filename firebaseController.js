@@ -46,9 +46,25 @@ async function saveAdAccountSettings(facebookId, adAccountId, adAccountSettings)
     await adAccountRef.set(adAccountSettings, { merge: true });
 }
 
+async function getGlobalSettings(facebookId) {
+    const docRef = db.collection("users").doc(facebookId).collection("settings").doc("global");
+    const docSnap = await docRef.get();
+    return docSnap.exists ? docSnap.data() : null;
+}
+
+// Get ad account settings
+async function getAdAccountSettings(facebookId, adAccountId) {
+    const docRef = db.collection("users").doc(facebookId).collection("adAccounts").doc(adAccountId);
+    const docSnap = await docRef.get();
+    return docSnap.exists ? docSnap.data() : null;
+}
+
+
 module.exports = {
     createOrUpdateUser,
     getUserByFacebookId,
     saveGlobalSettings,
     saveAdAccountSettings,
+    getGlobalSettings,
+    getAdAccountSettings,
 };
