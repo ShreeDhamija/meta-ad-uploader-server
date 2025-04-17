@@ -781,6 +781,29 @@ app.post(
   }
 );
 
+app.post("/settings/save", async (req, res) => {
+  const sessionUser = req.session.user;
+  if (!sessionUser) return res.status(401).json({ error: "Not authenticated" });
+
+  const { facebookId } = sessionUser;
+  const { globalSettings, adAccountSettings, adAccountId } = req.body;
+
+  try {
+    if (globalSettings) {
+      await saveGlobalSettings(facebookId, globalSettings);
+    }
+    if (adAccountSettings && adAccountId) {
+      await saveAdAccountSettings(facebookId, adAccountId, adAccountSettings);
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("Settings save error:", err);
+    return res.status(500).json({ error: "Failed to save settings" });
+  }
+});
+
+
 function cleanupUploadedFiles(files) {
   if (!files) return;
   Object.values(files).flat().forEach(file => {

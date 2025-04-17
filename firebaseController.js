@@ -33,7 +33,26 @@ async function getUserByFacebookId(facebookId) {
     return userDoc.exists ? userDoc.data() : null
 }
 
+// Global Settings (per user)
+async function saveGlobalSettings(facebookId, globalSettings) {
+    const globalRef = db.collection("users").doc(facebookId).collection("settings").doc("global");
+    await globalRef.set(globalSettings, { merge: true });
+}
+
+// Ad Account Settings (per user per ad account)
+async function saveAdAccountSettings(facebookId, adAccountId, adAccountSettings) {
+    const adAccountRef = db
+        .collection("users")
+        .doc(facebookId)
+        .collection("adAccounts")
+        .doc(adAccountId);
+
+    await adAccountRef.set(adAccountSettings, { merge: true });
+}
+
 module.exports = {
     createOrUpdateUser,
-    getUserByFacebookId
-}
+    getUserByFacebookId,
+    saveGlobalSettings,
+    saveAdAccountSettings,
+};
