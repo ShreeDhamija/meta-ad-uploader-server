@@ -16,6 +16,7 @@ const {
   saveAdAccountSettings,
   getGlobalSettings,
   getAdAccountSettings,
+  deleteCopyTemplate,
 } = require("./firebaseController");
 
 
@@ -211,7 +212,6 @@ app.get('/auth/fetch-campaigns', async (req, res) => {
       }
     });
 
-    console.log("Raw campaigns w/insights:", JSON.stringify(campaignsResponse.data.data, null, 2));
 
     const campaigns = campaignsResponse.data.data.map(camp => {
       const spend = parseFloat(camp.insights?.data?.[0]?.spend || "0");
@@ -811,6 +811,26 @@ app.post("/settings/save", async (req, res) => {
     return res.status(500).json({ error: "Failed to save settings" });
   }
 });
+
+app.post("/settings/delete-template", async (req, res) => {
+  const sessionUser = req.session.user;
+  if (!sessionUser) return res.status(401).json({ error: "Not authenticated" });
+
+  const { adAccountId, templateName } = req.body;
+
+  if (!adAccountId || !templateName) {
+    return res.status(400).json({ error: "Missing adAccountId or templateName" });
+  }
+
+  try {
+    await deleteCopyTemplate(sessionUser.facebookId, adAccountId, templateName);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("Delete template error:", err);
+    return res.status(500).json({ error: "Failed to delete template" });
+  }
+});
+
 
 app.get("/settings/global", async (req, res) => {
   const sessionUser = req.session.user;

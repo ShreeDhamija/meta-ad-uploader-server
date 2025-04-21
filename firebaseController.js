@@ -12,7 +12,6 @@ async function createOrUpdateUser({ facebookId, name, email, picture, accessToke
             email: email || null,
             accessToken,
             createdAt: new Date(),
-            hasCompletedSignup: true,
 
         })
         console.log("New user added to Firestore:", facebookId)
@@ -59,6 +58,28 @@ async function getAdAccountSettings(facebookId, adAccountId) {
     return docSnap.exists ? docSnap.data() : null;
 }
 
+// firebaseController.js
+
+async function deleteCopyTemplate(facebookId, adAccountId, templateName) {
+    const adAccountRef = db
+        .collection("users")
+        .doc(facebookId)
+        .collection("adAccounts")
+        .doc(adAccountId);
+
+    // Use dot notation to delete a specific nested field
+    await adAccountRef.update({
+        [`copyTemplates.${templateName}`]: admin.firestore.FieldValue.delete()
+    });
+
+    return true;
+}
+
+module.exports = {
+    ...otherExports,
+    deleteCopyTemplate // ⬅️ export it
+};
+
 
 module.exports = {
     createOrUpdateUser,
@@ -67,4 +88,5 @@ module.exports = {
     saveAdAccountSettings,
     getGlobalSettings,
     getAdAccountSettings,
+    deleteCopyTemplate,
 };
