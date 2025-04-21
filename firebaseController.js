@@ -75,11 +75,6 @@ async function deleteCopyTemplate(facebookId, adAccountId, templateName) {
     return true;
 }
 
-module.exports = {
-    ...otherExports,
-    deleteCopyTemplate // ⬅️ export it
-};
-
 
 module.exports = {
     createOrUpdateUser,
