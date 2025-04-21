@@ -1,4 +1,6 @@
 const { db } = require("./firebase")
+const admin = require("firebase-admin");
+
 
 // Add or update user data
 async function createOrUpdateUser({ facebookId, name, email, picture, accessToken }) {
