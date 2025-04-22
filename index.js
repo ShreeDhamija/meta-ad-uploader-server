@@ -970,7 +970,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     },
     status: 'ACTIVE'
   };
-  console.log("Final creative payload:", JSON.stringify(creativePayload, null, 2));
+
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
   return createAdResponse.data;
