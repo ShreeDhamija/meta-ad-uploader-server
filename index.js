@@ -442,7 +442,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_actor_id: instagramAccountId }),
+          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
         },
         ...(urlTags && { url_tags: urlTags }),
         asset_feed_spec: {
@@ -462,7 +462,13 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
         },
         degrees_of_freedom_spec: {
           creative_features_spec: {
-            standard_enhancements: { enroll_status: "OPT_OUT" }
+            image_touchups: { enroll_status: "OPT_OUT" },
+            video_auto_crop: { enroll_status: "OPT_OUT" },
+            text_optimizations: { enroll_status: "OPT_OUT" },
+            enhance_CTA: { enroll_status: "OPT_OUT" },
+            image_brightness_and_contrast: { enroll_status: "OPT_OUT" },
+            image_templates: { enroll_status: "OPT_OUT" },
+
           }
         }
       },
@@ -475,7 +481,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_actor_id: instagramAccountId }),
+          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
           video_data: {
             video_id: videoId,
             call_to_action: { type: cta, value: { link } },
@@ -491,7 +497,13 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
         ...(urlTags && { url_tags: urlTags }),
         degrees_of_freedom_spec: {
           creative_features_spec: {
-            standard_enhancements: { enroll_status: "OPT_OUT" }
+            image_touchups: { enroll_status: "OPT_OUT" },
+            video_auto_crop: { enroll_status: "OPT_OUT" },
+            text_optimizations: { enroll_status: "OPT_OUT" },
+            enhance_CTA: { enroll_status: "OPT_OUT" },
+            image_brightness_and_contrast: { enroll_status: "OPT_OUT" },
+            image_templates: { enroll_status: "OPT_OUT" },
+
           }
         }
       },
@@ -509,7 +521,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_actor_id: instagramAccountId })
+          ...(instagramAccountId && { instagram_user_id: instagramAccountId })
         },
         ...(urlTags && { url_tags: urlTags }),
         asset_feed_spec: {
@@ -523,7 +535,13 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
         },
         degrees_of_freedom_spec: {
           creative_features_spec: {
-            standard_enhancements: { enroll_status: "OPT_OUT" }
+            image_touchups: { enroll_status: "OPT_OUT" },
+            video_auto_crop: { enroll_status: "OPT_OUT" },
+            text_optimizations: { enroll_status: "OPT_OUT" },
+            enhance_CTA: { enroll_status: "OPT_OUT" },
+            image_brightness_and_contrast: { enroll_status: "OPT_OUT" },
+            image_templates: { enroll_status: "OPT_OUT" },
+
           }
         }
       },
@@ -536,7 +554,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_actor_id: instagramAccountId }),
+          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
           link_data: {
             name: headlines[0],
             description: descriptionsArray[0],
@@ -550,8 +568,14 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
         ...(urlTags && { url_tags: urlTags }),
         degrees_of_freedom_spec: {
           creative_features_spec: {
-            standard_enhancements: { enroll_status: "OPT_OUT" },
-          },
+            image_touchups: { enroll_status: "OPT_OUT" },
+            video_auto_crop: { enroll_status: "OPT_OUT" },
+            text_optimizations: { enroll_status: "OPT_OUT" },
+            enhance_CTA: { enroll_status: "OPT_OUT" },
+            image_brightness_and_contrast: { enroll_status: "OPT_OUT" },
+            image_templates: { enroll_status: "OPT_OUT" },
+
+          }
         },
       },
       status: "ACTIVE",
@@ -629,7 +653,7 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     urlTags
   });
 
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
   });
@@ -672,7 +696,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     instagramAccountId,
     urlTags
   });
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   console.log("Final creative payload:", JSON.stringify(creativePayload, null, 2));
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
@@ -936,18 +960,26 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     creative: {
       object_story_spec: {
         page_id: pageId,
-        ...(instagramAccountId && { instagram_actor_id: instagramAccountId })
+        ...(instagramAccountId && { instagram_user_id: instagramAccountId })
       },
       ...(urlTags && { url_tags: urlTags }),
       asset_feed_spec: assetFeedSpec,
       degrees_of_freedom_spec: {
-        creative_features_spec: { standard_enhancements: { enroll_status: "OPT_OUT" } }
+        creative_features_spec: {
+          image_touchups: { enroll_status: "OPT_OUT" },
+          video_auto_crop: { enroll_status: "OPT_OUT" },
+          text_optimizations: { enroll_status: "OPT_OUT" },
+          enhance_CTA: { enroll_status: "OPT_OUT" },
+          image_brightness_and_contrast: { enroll_status: "OPT_OUT" },
+          image_templates: { enroll_status: "OPT_OUT" },
+
+        }
       }
     },
     status: 'ACTIVE'
   };
   console.log("Final creative payload:", JSON.stringify(creativePayload, null, 2));
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
   return createAdResponse.data;
 }
@@ -1029,18 +1061,26 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     creative: {
       object_story_spec: {
         page_id: pageId,
-        ...(instagramAccountId && { instagram_actor_id: instagramAccountId })
+        ...(instagramAccountId && { instagram_user_id: instagramAccountId })
       },
       ...(urlTags && { url_tags: urlTags }),
       asset_feed_spec: assetFeedSpec,
       degrees_of_freedom_spec: {
-        creative_features_spec: { standard_enhancements: { enroll_status: "OPT_OUT" } }
+        creative_features_spec: {
+          image_touchups: { enroll_status: "OPT_OUT" },
+          video_auto_crop: { enroll_status: "OPT_OUT" },
+          text_optimizations: { enroll_status: "OPT_OUT" },
+          enhance_CTA: { enroll_status: "OPT_OUT" },
+          image_brightness_and_contrast: { enroll_status: "OPT_OUT" },
+          image_templates: { enroll_status: "OPT_OUT" },
+
+        }
       }
     },
     status: 'ACTIVE'
   };
 
-  const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
   return createAdResponse.data;
 }
