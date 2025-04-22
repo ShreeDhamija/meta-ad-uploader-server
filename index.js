@@ -748,7 +748,7 @@ app.post(
       const creativeEnhancements = adAccountSettings?.creativeEnhancements || {};
       const utmPairs = adAccountSettings?.defaultUTMs || [];
       const urlTags = buildUrlTagsFromPairs(utmPairs);
-      console.log("Constructed url_tags:", urlTags);
+
 
 
       let result;
