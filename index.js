@@ -691,7 +691,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     creativeEnhancements
   });
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
-  console.log("Final creative payload:", JSON.stringify(creativePayload, null, 2));
+
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
   });
