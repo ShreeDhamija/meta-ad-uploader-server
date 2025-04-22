@@ -66,7 +66,7 @@ let userData = {};
  * Step 1: Facebook Login - Redirect to Facebook OAuth
  */
 app.get('/auth/facebook', (req, res) => {
-  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement&response_type=code`;
+  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic&response_type=code`;
   res.redirect(redirectUri);
 });
 
@@ -306,24 +306,25 @@ app.get('/auth/fetch-pages', async (req, res) => {
 
         try {
           // ✅ 2. Fetch Connected Instagram Business Account
-          const igRes = await axios.get(`https://graph.facebook.com/v21.0/${page.id}/instagram_accounts`, {
+          const igRes = await axios.get(`https://graph.facebook.com/v22.0/${page.id}`, {
             params: {
               access_token: page.access_token,
+              fields: "instagram_business_account"
             },
           })
 
           console.log(`IG account data for page ${page.id}:`, JSON.stringify(igRes.data, null, 2))
-          const igAccountId = igRes.data?.data?.[0]?.id
+          const igAccountId = igRes.data?.instagram_business_account?.id;
 
           if (igAccountId) {
             // ✅ 3. Optionally fetch IG account details (username, profile pic)
 
 
             try {
-              const igDetailsRes = await axios.get(`https://graph.facebook.com/v21.0/${igAccountId}`, {
+              const igDetailsRes = await axios.get(`https://graph.facebook.com/v22.0/${igAccountId}`, {
                 params: {
                   access_token: page.access_token,
-                  fields: 'username,profile_pic',
+                  fields: 'username,profile_pic_url',
                 },
               })
 
@@ -332,7 +333,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
               instagramAccount = {
                 id: igAccountId,
                 username: igDetailsRes.data?.username || null,
-                profilePictureUrl: igDetailsRes.data?.profile_pic || null,
+                profilePictureUrl: igDetailsRes.data?.profile_pic_url || null,
               }
 
 
@@ -442,7 +443,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       creative: {
         object_story_spec: {
           page_id: pageId,
-          //...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
         },
         ...(urlTags && { url_tags: urlTags }),
         asset_feed_spec: {
@@ -481,7 +482,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       creative: {
         object_story_spec: {
           page_id: pageId,
-          //...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
           video_data: {
             video_id: videoId,
             call_to_action: { type: cta, value: { link } },
@@ -521,7 +522,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       creative: {
         object_story_spec: {
           page_id: pageId,
-          //...(instagramAccountId && { instagram_user_id: instagramAccountId })
+          ...(instagramAccountId && { instagram_user_id: instagramAccountId })
         },
         ...(urlTags && { url_tags: urlTags }),
         asset_feed_spec: {
@@ -554,7 +555,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       creative: {
         object_story_spec: {
           page_id: pageId,
-          //...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
           link_data: {
             name: headlines[0],
             description: descriptionsArray[0],
@@ -960,7 +961,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     creative: {
       object_story_spec: {
         page_id: pageId,
-        //...(instagramAccountId && { instagram_user_id: instagramAccountId })
+        ...(instagramAccountId && { instagram_user_id: instagramAccountId })
       },
       ...(urlTags && { url_tags: urlTags }),
       asset_feed_spec: assetFeedSpec,
@@ -1061,7 +1062,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     creative: {
       object_story_spec: {
         page_id: pageId,
-        //...(instagramAccountId && { instagram_user_id: instagramAccountId })
+        ...(instagramAccountId && { instagram_user_id: instagramAccountId })
       },
       ...(urlTags && { url_tags: urlTags }),
       asset_feed_spec: assetFeedSpec,
