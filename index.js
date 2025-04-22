@@ -325,6 +325,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
                   fields: 'username,profile_picture_url',
                 },
               })
+              console.log("✅ IG Details for", igAccountId, JSON.stringify(igDetailsRes.data, null, 2));
 
               instagramAccount = {
                 id: igAccountId,
@@ -332,7 +333,8 @@ app.get('/auth/fetch-pages', async (req, res) => {
                 profilePictureUrl: igDetailsRes.data?.profile_picture_url || null,
               }
 
-              console.log(instagramAccount)
+
+              console.log("final checl", instagramAccount)
 
             } catch (err) {
               console.error(` Failed to fetch IG details for IG ID ${igAccountId} (page ${page.id}):`)
