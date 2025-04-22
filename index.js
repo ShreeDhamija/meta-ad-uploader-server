@@ -414,6 +414,25 @@ async function waitForVideoProcessing(videoId, token) {
   throw new Error('Video processing timed out');
 }
 
+
+//url tag builder
+function buildUrlTagsFromPairs(utmPairs) {
+  return utmPairs
+    .filter(p => p.key && p.value)
+    .map(p => `${p.key}=${p.value}`)
+    .join("&");
+}
+
+//helper functions
+function cleanupUploadedFiles(files) {
+  if (!files) return;
+  Object.values(files).flat().forEach(file => {
+    fs.unlink(file.path, err => {
+      if (err) console.error("Failed to clean up file:", file.path, err.message);
+    });
+  });
+}
+
 // Helper: Build video creative payload
 function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, thumbnailUrl, useDynamicCreative, instagramAccountId, urlTags }) {
   if (useDynamicCreative) {
@@ -544,7 +563,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
 
 
 
-async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId) {
+async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags) {
   const file = req.files.imageFile?.[0];
   if (!file) throw new Error('Video file is required');
 
@@ -619,17 +638,10 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
   return createAdResponse.data;
 }
 
-//url tag builder
-function buildUrlTagsFromPairs(utmPairs) {
-  return utmPairs
-    .filter(p => p.key && p.value)
-    .map(p => `${p.key}=${p.value}`)
-    .join("&");
-}
 
 
 // Helper: Handle Image Ad Creation
-async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId) {
+async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags) {
   const file = req.files.imageFile && req.files.imageFile[0];
   const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
 
@@ -741,7 +753,8 @@ app.post(
             headlines,
             messagesArray,
             descriptionsArray,
-            instagramAccountId
+            instagramAccountId,
+            urlTags
           );
         } else {
           result = await handleDynamicImageAd(
@@ -756,7 +769,8 @@ app.post(
             headlines,
             messagesArray,
             descriptionsArray,
-            instagramAccountId
+            instagramAccountId,
+            urlTags
           );
         }
       } else {
@@ -777,7 +791,8 @@ app.post(
             messagesArray,
             descriptionsArray,
             useDynamicCreative,
-            instagramAccountId
+            instagramAccountId,
+            urlTags
           );
         } else {
           result = await handleImageAd(
@@ -793,7 +808,8 @@ app.post(
             messagesArray,
             descriptionsArray,
             useDynamicCreative,
-            instagramAccountId
+            instagramAccountId,
+            urlTags
           );
         }
       }
@@ -881,15 +897,7 @@ app.get("/settings/ad-account", async (req, res) => {
 
 
 
-//helper functions
-function cleanupUploadedFiles(files) {
-  if (!files) return;
-  Object.values(files).flat().forEach(file => {
-    fs.unlink(file.path, err => {
-      if (err) console.error("Failed to clean up file:", file.path, err.message);
-    });
-  });
-}
+
 
 
 // Helper: Process multiple images for dynamic creative.
