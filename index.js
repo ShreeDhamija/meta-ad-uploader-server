@@ -43,6 +43,31 @@ app.use(session({
   }
 }));
 
+function buildCreativeEnhancementsConfig(firestoreSettings = {}) {
+  return {
+    image_brightness_and_contrast: {
+      enroll_status: firestoreSettings.brightness ? "OPT_IN" : "OPT_OUT"
+    },
+    enhance_CTA: {
+      enroll_status: firestoreSettings.cta ? "OPT_IN" : "OPT_OUT"
+    },
+    image_templates: {
+      enroll_status: firestoreSettings.overlay ? "OPT_IN" : "OPT_OUT"
+    },
+    text_optimizations: {
+      enroll_status: firestoreSettings.text ? "OPT_IN" : "OPT_OUT"
+    },
+    image_touchups: {
+      enroll_status: firestoreSettings.visual ? "OPT_IN" : "OPT_OUT"
+    },
+    video_auto_crop: {
+      enroll_status: firestoreSettings.visual ? "OPT_IN" : "OPT_OUT"
+    }
+  }
+}
+
+
+
 // Multer disk storage
 const uploadDir = path.join('/data', 'uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -313,7 +338,6 @@ app.get('/auth/fetch-pages', async (req, res) => {
             },
           })
 
-          console.log(`IG account data for page ${page.id}:`, JSON.stringify(igRes.data, null, 2))
           const igAccountId = igRes.data?.instagram_business_account?.id;
 
           if (igAccountId) {
@@ -325,16 +349,13 @@ app.get('/auth/fetch-pages', async (req, res) => {
                   fields: 'username,profile_picture_url',
                 },
               })
-              console.log("✅ IG Details for", igAccountId, JSON.stringify(igDetailsRes.data, null, 2));
+
 
               instagramAccount = {
                 id: igAccountId,
                 username: igDetailsRes.data?.username || null,
                 profilePictureUrl: igDetailsRes.data?.profile_picture_url || null,
               }
-
-
-              console.log("final checl", instagramAccount)
 
             } catch (err) {
               console.error(` Failed to fetch IG details for IG ID ${igAccountId} (page ${page.id}):`)
@@ -433,7 +454,7 @@ function cleanupUploadedFiles(files) {
 }
 
 // Helper: Build video creative payload
-function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, thumbnailUrl, useDynamicCreative, instagramAccountId, urlTags }) {
+function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, thumbnailUrl, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements }) {
   if (useDynamicCreative) {
     return {
       name: adName,
@@ -460,15 +481,8 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
           link_urls: [{ website_url: link }]
         },
         degrees_of_freedom_spec: {
-          creative_features_spec: {
-            image_touchups: { enroll_status: "OPT_OUT" },
-            video_auto_crop: { enroll_status: "OPT_OUT" },
-            text_optimizations: { enroll_status: "OPT_OUT" },
-            enhance_CTA: { enroll_status: "OPT_OUT" },
-            image_brightness_and_contrast: { enroll_status: "OPT_OUT" },
-            image_templates: { enroll_status: "OPT_OUT" },
+          creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
 
-          }
         }
       },
       status: 'ACTIVE'
@@ -495,15 +509,8 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
         },
         ...(urlTags && { url_tags: urlTags }),
         degrees_of_freedom_spec: {
-          creative_features_spec: {
-            image_touchups: { enroll_status: "OPT_OUT" },
-            video_auto_crop: { enroll_status: "OPT_OUT" },
-            text_optimizations: { enroll_status: "OPT_OUT" },
-            enhance_CTA: { enroll_status: "OPT_OUT" },
-            image_brightness_and_contrast: { enroll_status: "OPT_OUT" },
-            image_templates: { enroll_status: "OPT_OUT" },
+          creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
 
-          }
         }
       },
       status: 'ACTIVE'
@@ -512,7 +519,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
 }
 
 // Helper: Build image creative payload
-function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags }) {
+function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements }) {
   if (useDynamicCreative) {
     return {
       name: adName,
@@ -533,15 +540,8 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
           link_urls: [{ website_url: link }]
         },
         degrees_of_freedom_spec: {
-          creative_features_spec: {
-            image_touchups: { enroll_status: "OPT_OUT" },
-            video_auto_crop: { enroll_status: "OPT_OUT" },
-            text_optimizations: { enroll_status: "OPT_OUT" },
-            enhance_CTA: { enroll_status: "OPT_OUT" },
-            image_brightness_and_contrast: { enroll_status: "OPT_OUT" },
-            image_templates: { enroll_status: "OPT_OUT" },
+          creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
 
-          }
         }
       },
       status: 'ACTIVE'
@@ -566,15 +566,8 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
         },
         ...(urlTags && { url_tags: urlTags }),
         degrees_of_freedom_spec: {
-          creative_features_spec: {
-            image_touchups: { enroll_status: "OPT_OUT" },
-            video_auto_crop: { enroll_status: "OPT_OUT" },
-            text_optimizations: { enroll_status: "OPT_OUT" },
-            enhance_CTA: { enroll_status: "OPT_OUT" },
-            image_brightness_and_contrast: { enroll_status: "OPT_OUT" },
-            image_templates: { enroll_status: "OPT_OUT" },
+          creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
 
-          }
         },
       },
       status: "ACTIVE",
@@ -586,7 +579,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
 
 
 
-async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags) {
+async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements) {
   const file = req.files.imageFile?.[0];
   if (!file) throw new Error('Video file is required');
 
@@ -649,7 +642,8 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     thumbnailUrl,
     useDynamicCreative,
     instagramAccountId,
-    urlTags
+    urlTags,
+    creativeEnhancements
   });
 
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
@@ -664,7 +658,7 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
 
 
 // Helper: Handle Image Ad Creation
-async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags) {
+async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements) {
   const file = req.files.imageFile && req.files.imageFile[0];
   const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
 
@@ -693,7 +687,8 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     descriptionsArray,
     useDynamicCreative,
     instagramAccountId,
-    urlTags
+    urlTags,
+    creativeEnhancements
   });
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   console.log("Final creative payload:", JSON.stringify(creativePayload, null, 2));
@@ -750,6 +745,7 @@ app.post(
         adSetDynamicCreative;
 
       const adAccountSettings = await getAdAccountSettings(req.session.user.facebookId, adAccountId);
+      const creativeEnhancements = adAccountSettings?.creativeEnhancements || {};
       const utmPairs = adAccountSettings?.defaultUTMs || [];
       const urlTags = buildUrlTagsFromPairs(utmPairs);
       console.log("Constructed url_tags:", urlTags);
@@ -778,7 +774,8 @@ app.post(
             messagesArray,
             descriptionsArray,
             instagramAccountId,
-            urlTags
+            urlTags,
+            creativeEnhancements
           );
         } else {
           result = await handleDynamicImageAd(
@@ -794,7 +791,8 @@ app.post(
             messagesArray,
             descriptionsArray,
             instagramAccountId,
-            urlTags
+            urlTags,
+            creativeEnhancements
           );
         }
       } else {
@@ -816,7 +814,8 @@ app.post(
             descriptionsArray,
             useDynamicCreative,
             instagramAccountId,
-            urlTags
+            urlTags,
+            creativeEnhancements
           );
         } else {
           result = await handleImageAd(
@@ -833,7 +832,8 @@ app.post(
             descriptionsArray,
             useDynamicCreative,
             instagramAccountId,
-            urlTags
+            urlTags,
+            creativeEnhancements
           );
         }
       }
@@ -925,7 +925,7 @@ app.get("/settings/ad-account", async (req, res) => {
 
 
 // Helper: Process multiple images for dynamic creative.
-async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId) {
+async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements) {
   const mediaFiles = req.files.mediaFiles;
   let imageHashes = [];
   for (const file of mediaFiles) {
@@ -964,15 +964,8 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
       ...(urlTags && { url_tags: urlTags }),
       asset_feed_spec: assetFeedSpec,
       degrees_of_freedom_spec: {
-        creative_features_spec: {
-          image_touchups: { enroll_status: "OPT_OUT" },
-          video_auto_crop: { enroll_status: "OPT_OUT" },
-          text_optimizations: { enroll_status: "OPT_OUT" },
-          enhance_CTA: { enroll_status: "OPT_OUT" },
-          image_brightness_and_contrast: { enroll_status: "OPT_OUT" },
-          image_templates: { enroll_status: "OPT_OUT" },
+        creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
 
-        }
       }
     },
     status: 'ACTIVE'
@@ -984,7 +977,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
 }
 
 
-async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId) {
+async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements) {
   const mediaFiles = req.files.mediaFiles;
   const thumbFile = req.files.thumbnail?.[0];
   const fallbackThumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg";
@@ -1065,15 +1058,8 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
       ...(urlTags && { url_tags: urlTags }),
       asset_feed_spec: assetFeedSpec,
       degrees_of_freedom_spec: {
-        creative_features_spec: {
-          image_touchups: { enroll_status: "OPT_OUT" },
-          video_auto_crop: { enroll_status: "OPT_OUT" },
-          text_optimizations: { enroll_status: "OPT_OUT" },
-          enhance_CTA: { enroll_status: "OPT_OUT" },
-          image_brightness_and_contrast: { enroll_status: "OPT_OUT" },
-          image_templates: { enroll_status: "OPT_OUT" },
+        creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
 
-        }
       }
     },
     status: 'ACTIVE'
