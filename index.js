@@ -727,7 +727,7 @@ app.post(
         adSetDynamicCreative;
 
       const adAccountSettings = await getAdAccountSettings(req.session.user.facebookId, adAccountId);
-      const utmPairs = adAccountSettings?.utmPairs || [];
+      const utmPairs = adAccountSettings?.defaultUTMs || [];
       const urlTags = buildUrlTagsFromPairs(utmPairs);
       console.log("Constructed url_tags:", urlTags);
 
