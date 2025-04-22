@@ -673,7 +673,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     urlTags
   });
   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
-
+  console.log("Final creative payload:", JSON.stringify(creativePayload, null, 2));
   const createAdResponse = await axios.post(createAdUrl, creativePayload, {
     params: { access_token: token }
   });
@@ -729,6 +729,7 @@ app.post(
       const adAccountSettings = await getAdAccountSettings(req.session.user.facebookId, adAccountId);
       const utmPairs = adAccountSettings?.utmPairs || [];
       const urlTags = buildUrlTagsFromPairs(utmPairs);
+      console.log("Constructed url_tags:", urlTags);
 
 
       let result;
@@ -937,6 +938,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
         page_id: pageId,
         ...(instagramAccountId && { instagram_actor_id: instagramAccountId })
       },
+      ...(urlTags && { url_tags: urlTags }),
       asset_feed_spec: assetFeedSpec,
       degrees_of_freedom_spec: {
         creative_features_spec: { standard_enhancements: { enroll_status: "OPT_OUT" } }
@@ -944,7 +946,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     },
     status: 'ACTIVE'
   };
-
+  console.log("Final creative payload:", JSON.stringify(creativePayload, null, 2));
   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
   const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
   return createAdResponse.data;
@@ -1029,6 +1031,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
         page_id: pageId,
         ...(instagramAccountId && { instagram_actor_id: instagramAccountId })
       },
+      ...(urlTags && { url_tags: urlTags }),
       asset_feed_spec: assetFeedSpec,
       degrees_of_freedom_spec: {
         creative_features_spec: { standard_enhancements: { enroll_status: "OPT_OUT" } }
