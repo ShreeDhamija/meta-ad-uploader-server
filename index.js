@@ -442,7 +442,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+          //...(instagramAccountId && { instagram_user_id: instagramAccountId }),
         },
         ...(urlTags && { url_tags: urlTags }),
         asset_feed_spec: {
@@ -481,7 +481,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+          //...(instagramAccountId && { instagram_user_id: instagramAccountId }),
           video_data: {
             video_id: videoId,
             call_to_action: { type: cta, value: { link } },
@@ -521,7 +521,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_user_id: instagramAccountId })
+          //...(instagramAccountId && { instagram_user_id: instagramAccountId })
         },
         ...(urlTags && { url_tags: urlTags }),
         asset_feed_spec: {
@@ -554,7 +554,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+          //...(instagramAccountId && { instagram_user_id: instagramAccountId }),
           link_data: {
             name: headlines[0],
             description: descriptionsArray[0],
@@ -960,7 +960,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     creative: {
       object_story_spec: {
         page_id: pageId,
-        ...(instagramAccountId && { instagram_user_id: instagramAccountId })
+        //...(instagramAccountId && { instagram_user_id: instagramAccountId })
       },
       ...(urlTags && { url_tags: urlTags }),
       asset_feed_spec: assetFeedSpec,
@@ -1061,7 +1061,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     creative: {
       object_story_spec: {
         page_id: pageId,
-        ...(instagramAccountId && { instagram_user_id: instagramAccountId })
+        //...(instagramAccountId && { instagram_user_id: instagramAccountId })
       },
       ...(urlTags && { url_tags: urlTags }),
       asset_feed_spec: assetFeedSpec,
