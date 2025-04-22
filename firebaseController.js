@@ -69,13 +69,34 @@ async function deleteCopyTemplate(facebookId, adAccountId, templateName) {
         .collection("adAccounts")
         .doc(adAccountId);
 
-    // Use dot notation to delete a specific nested field
-    await adAccountRef.update({
+    const adDoc = await adAccountRef.get();
+    const data = adDoc.data();
+
+    const isDefault = data?.defaultTemplateName === templateName;
+    const templates = data?.copyTemplates || {};
+
+    // Remove the template from local object
+    delete templates[templateName];
+
+    const updatePayload = {
         [`copyTemplates.${templateName}`]: admin.firestore.FieldValue.delete()
-    });
+    };
+
+    // If it was default, and we still have other templates left
+    const remainingTemplateNames = Object.keys(templates);
+    if (isDefault) {
+        if (remainingTemplateNames.length > 0) {
+            updatePayload.defaultTemplateName = remainingTemplateNames[0]; // Set new default
+        } else {
+            updatePayload.defaultTemplateName = admin.firestore.FieldValue.delete(); // Clear it
+        }
+    }
+
+    await adAccountRef.update(updatePayload);
 
     return true;
 }
+
 
 
 module.exports = {

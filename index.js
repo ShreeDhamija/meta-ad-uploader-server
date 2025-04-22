@@ -415,7 +415,7 @@ async function waitForVideoProcessing(videoId, token) {
 }
 
 // Helper: Build video creative payload
-function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, thumbnailUrl, useDynamicCreative, instagramAccountId }) {
+function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, thumbnailUrl, useDynamicCreative, instagramAccountId, urlTags }) {
   if (useDynamicCreative) {
     return {
       name: adName,
@@ -425,6 +425,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
           page_id: pageId,
           ...(instagramAccountId && { instagram_actor_id: instagramAccountId }),
         },
+        ...(urlTags && { url_tags: urlTags }),
         asset_feed_spec: {
           videos: [{
             video_id: videoId,
@@ -468,6 +469,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
             )
           }
         },
+        ...(urlTags && { url_tags: urlTags }),
         degrees_of_freedom_spec: {
           creative_features_spec: {
             standard_enhancements: { enroll_status: "OPT_OUT" }
@@ -480,7 +482,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
 }
 
 // Helper: Build image creative payload
-function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId }) {
+function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags }) {
   if (useDynamicCreative) {
     return {
       name: adName,
@@ -490,6 +492,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
           page_id: pageId,
           ...(instagramAccountId && { instagram_actor_id: instagramAccountId })
         },
+        ...(urlTags && { url_tags: urlTags }),
         asset_feed_spec: {
           images: [{ hash: imageHash }],
           titles: headlines.map(text => ({ text })),
@@ -525,6 +528,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
             image_hash: imageHash,
           },
         },
+        ...(urlTags && { url_tags: urlTags }),
         degrees_of_freedom_spec: {
           creative_features_spec: {
             standard_enhancements: { enroll_status: "OPT_OUT" },
@@ -602,7 +606,8 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     thumbnailHash,
     thumbnailUrl,
     useDynamicCreative,
-    instagramAccountId
+    instagramAccountId,
+    urlTags
   });
 
   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
@@ -612,6 +617,14 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
 
   await fs.promises.unlink(file.path).catch(err => console.error("Error deleting video file:", err));
   return createAdResponse.data;
+}
+
+//url tag builder
+function buildUrlTagsFromPairs(utmPairs) {
+  return utmPairs
+    .filter(p => p.key && p.value)
+    .map(p => `${p.key}=${p.value}`)
+    .join("&");
 }
 
 
@@ -644,7 +657,8 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     messagesArray,
     descriptionsArray,
     useDynamicCreative,
-    instagramAccountId
+    instagramAccountId,
+    urlTags
   });
   const createAdUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads`;
 
@@ -699,6 +713,11 @@ app.post(
         descriptionsArray.length > 1 ||
         messagesArray.length > 1 ||
         adSetDynamicCreative;
+
+      const adAccountSettings = await getAdAccountSettings(req.session.user.facebookId, adAccountId);
+      const utmPairs = adAccountSettings?.utmPairs || [];
+      const urlTags = buildUrlTagsFromPairs(utmPairs);
+
 
       let result;
       // For dynamic ad creative, use the aggregated media fields.
