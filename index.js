@@ -19,7 +19,8 @@ const {
   deleteCopyTemplate,
 } = require("./firebaseController");
 const { createClient } = require('redis');
-const RedisStore = require('connect-redis').default;
+const connectRedis = require('connect-redis');
+const RedisStore = connectRedis(session); // ✅ CORRECT constructor pattern
 
 
 
