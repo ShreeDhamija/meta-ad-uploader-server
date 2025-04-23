@@ -33,7 +33,7 @@ app.use(express.static('public'));
 // const { FirestoreStore } = require('@google-cloud/connect-firestore');
 // const firestore = new Firestore();
 const STATIC_LOGIN = {
-  email: "tester@gmail.com",
+  email: "metatest",
   password: "password", // ideally use env variable
 };
 
@@ -924,8 +924,8 @@ app.post("/settings/delete-template", async (req, res) => {
 
 
 app.post("/auth/manual-login", async (req, res) => {
-  const { email, password } = req.body;
-  if (email !== STATIC_LOGIN.email || password !== STATIC_LOGIN.password) {
+  const { username, password } = req.body;
+  if (username !== STATIC_LOGIN.username || password !== STATIC_LOGIN.password) {
     return res.status(401).json({ error: "Invalid credentials" });
   }
 
