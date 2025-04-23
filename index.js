@@ -18,77 +18,46 @@ const {
   getAdAccountSettings,
   deleteCopyTemplate,
 } = require("./firebaseController");
-const redis = require('redis');
-const RedisStore = require('connect-redis').default;
-
-
 
 app.use(express.json());
 app.set('trust proxy', 1);
-
 app.use(cors({
   origin: 'https://batchadupload.vercel.app', // Replace with your React app's origin
   credentials: true // This enables sending cookies from the client
 }));
-
 app.use(express.static('public'));
 
-// Initialize Redis client
-const redisClient = redis.createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-  legacyMode: true
-});
+const session = require('express-session');
+const Redis = require('ioredis');
+const RedisStore = require('connect-redis').default;
 
-// Connect to Redis
+// Initialize ioredis client
+const redisClient = new Redis(process.env.REDIS_URL); // no legacyMode, no connect()
 
-
-// redisClient.on('error', (err) => {
-//   console.error('Redis Client Error:', err);
-// });
-
-// redisClient.on('connect', () => {
-//   console.log('Connected to Redis successfully');
-// });
-
-// Parse JSON bodies
 redisClient.on('error', (err) => {
   console.error('Redis Client Error:', err);
 });
 
-let redisStore = new RedisStore({
-  client: redisClient,
-});
-
-(async () => {
-  try {
-    await redisClient.connect();
-    console.log('Connected to Redis successfully');
-
-    app.use(session({
-      store: redisStore,
-      secret: process.env.SESSION_SECRET || 'your-secret-key',
-      resave: false,
-      saveUninitialized: false,
-      rolling: true,
-      cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-        sameSite: 'none'
-      }
-    }));
-
-    // Start listening only AFTER Redis is ready
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-
-  } catch (err) {
-    console.error("Redis connection failed:", err);
-    process.exit(1); // Crash on purpose so Railway restarts doesn't loop forever
+// Session setup using ioredis (no async wrapper needed)
+app.use(session({
+  store: new RedisStore({ client: redisClient }),
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  rolling: true,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    sameSite: 'none'
   }
-})();
+}));
+
+// Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
 
 
 
