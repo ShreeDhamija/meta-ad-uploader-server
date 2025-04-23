@@ -26,8 +26,6 @@ app.use(cors({
   credentials: true // This enables sending cookies from the client
 }));
 app.use(express.static('public'));
-
-const session = require('express-session');
 const Redis = require('ioredis');
 const RedisStore = require('connect-redis').default;
 
