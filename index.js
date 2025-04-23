@@ -19,8 +19,7 @@ const {
   deleteCopyTemplate,
 } = require("./firebaseController");
 const { createClient } = require('redis');
-const connectRedis = require('connect-redis');
-const RedisStore = connectRedis(session); // ✅ CORRECT constructor pattern
+const RedisStore = require('connect-redis').default;
 
 
 
@@ -62,7 +61,7 @@ redisClient.on('error', (err) => {
     console.log('Connected to Redis successfully');
 
     app.use(session({
-      store: new RedisStore({ client: redisClient, prefix: "sess:" }),
+      store: new RedisStore({ client: redisClient }),
       secret: process.env.SESSION_SECRET || 'your-secret-key',
       resave: false,
       saveUninitialized: false,
