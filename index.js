@@ -26,67 +26,24 @@ app.use(cors({
   credentials: true // This enables sending cookies from the client
 }));
 app.use(express.static('public'));
-const Redis = require('ioredis');
-const RedisStore = require('connect-redis').default;
-
-// Initialize ioredis client
-const redisClient = new Redis(process.env.REDIS_URL); // no legacyMode, no connect()
-
-redisClient.on('error', (err) => {
-  console.error('Redis Client Error:', err);
-});
 
 // Session setup using ioredis (no async wrapper needed)
+
+
+
 app.use(session({
-  store: new RedisStore({ client: redisClient }),
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
-  rolling: true,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
     sameSite: 'none'
   }
 }));
 
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
 
-
-
-// app.use(session({
-//   secret: process.env.SESSION_SECRET || 'your-secret-key',
-//   resave: false,
-//   saveUninitialized: false,
-//   cookie: {
-//     secure: process.env.NODE_ENV === 'production',
-//     httpOnly: true,
-//     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-//     sameSite: 'none'
-//   }
-// }));
-
-// app.use(session({
-//   store: new RedisStore({
-//     client: redisClient,
-//     prefix: "sess:", // Added a prefix for Redis keys (optional but recommended)
-//   }),
-//   secret: process.env.SESSION_SECRET || 'your-secret-key',
-//   resave: false,
-//   saveUninitialized: false,
-//   rolling: true,
-//   cookie: {
-//     secure: process.env.NODE_ENV === 'production',
-//     httpOnly: true,
-//     maxAge: 30 * 24 * 60 * 60 * 1000, // 24 hours
-//     sameSite: 'none'
-//   }
-// }));
 
 
 function buildCreativeEnhancementsConfig(firestoreSettings = {}) {
@@ -1122,10 +1079,10 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
 
 
 
-// const PORT = process.env.PORT || 3000;
-// app.listen(PORT, () => {
-//   console.log(`Server running on http://localhost:${PORT}`);
-// });
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
 
 process.on('SIGINT', async () => {
   console.log('Shutting down server...');
