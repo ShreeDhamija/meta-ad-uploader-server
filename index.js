@@ -36,7 +36,7 @@ app.use(express.static('public'));
 // Initialize Redis client
 const redisClient = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379',
-  //legacyMode: true
+  legacyMode: true
 });
 
 // Connect to Redis
@@ -51,6 +51,9 @@ const redisClient = createClient({
 // });
 
 // Parse JSON bodies
+redisClient.on('error', (err) => {
+  console.error('Redis Client Error:', err);
+});
 
 (async () => {
   try {
@@ -1148,10 +1151,10 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
 
 
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// const PORT = process.env.PORT || 3000;
+// app.listen(PORT, () => {
+//   console.log(`Server running on http://localhost:${PORT}`);
+// });
 
 process.on('SIGINT', async () => {
   console.log('Shutting down server...');
