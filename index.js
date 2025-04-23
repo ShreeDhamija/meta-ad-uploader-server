@@ -24,7 +24,8 @@ const RedisStore = require('connect-redis').default;
 
 // Initialize Redis client
 const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
+  url: process.env.REDIS_URL || 'redis://localhost:6379',
+  legacyMode: true
 });
 
 // Connect to Redis
@@ -64,7 +65,10 @@ app.use(express.static('public'));
 // }));
 
 app.use(session({
-  store: new RedisStore({ client: redisClient }),
+  store: new RedisStore({
+    client: redisClient,
+    prefix: "sess:", // Added a prefix for Redis keys (optional but recommended)
+  }),
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
