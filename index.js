@@ -603,7 +603,7 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
 
   // Handle thumbnail
   const thumbnailFile = req.files.thumbnail?.[0];
-  const globalSettings = await getGlobalSettings(req.session.user.facebookId);
+
 
   let thumbnailHash = null;
   let thumbnailUrl = null;
@@ -627,9 +627,7 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
 
     await fs.promises.unlink(thumbnailFile.path).catch(err => console.error("Error deleting thumbnail file:", err));
   }
-  else if (globalSettings?.customThumbnailHash) {
-    thumbnailHash = globalSettings.customThumbnailHash;
-  }
+
   else {
     thumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg";
   }
@@ -926,48 +924,6 @@ app.get("/settings/ad-account", async (req, res) => {
   }
 });
 
-app.post("/settings/upload-thumbnail", upload.single("thumbnail"), async (req, res) => {
-  const token = req.session.accessToken;
-  const sessionUser = req.session.user;
-
-  if (!token || !sessionUser) return res.status(401).json({ error: "Not authenticated" });
-  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-
-  try {
-    const formData = new FormData();
-    formData.append("access_token", token);
-    formData.append("file", fs.createReadStream(req.file.path), {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype,
-    });
-
-    const uploadRes = await axios.post(
-      `https://graph.facebook.com/v21.0/act_${req.body.adAccountId}/adimages`, // requires ad account
-      formData,
-      { headers: formData.getHeaders() }
-    );
-
-    const imageKey = Object.keys(uploadRes.data.images)[0];
-    const hash = uploadRes.data.images[imageKey].hash;
-
-    // Clean up file
-    await fs.promises.unlink(req.file.path).catch(() => { });
-
-    // Save to Firestore under global settings
-    await saveGlobalSettings(sessionUser.facebookId, {
-      customThumbnailHash: hash,
-    });
-
-    return res.json({ success: true, hash });
-  } catch (err) {
-    console.error("Failed to upload thumbnail to Meta:", err);
-    res.status(500).json({ error: "Upload failed" });
-  }
-});
-
-
-
-
 
 // Helper: Process multiple images for dynamic creative.
 async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements) {
@@ -1049,7 +1005,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     await waitForVideoProcessing(videoId, token);
 
     let thumbnailSource = {};
-    const globalSettings = await getGlobalSettings(req.session.user.facebookId);
+
     if (thumbFile) {
       const thumbFormData = new FormData();
       thumbFormData.append('access_token', token);
@@ -1067,10 +1023,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
       const key = Object.keys(imagesInfo)[0];
       thumbnailSource = { thumbnail_hash: imagesInfo[key].hash };
     }
-    else if (globalSettings?.customThumbnailHash) {
-      //thumbnailHash = globalSettings.customThumbnailHash;
-      thumbnailSource = { thumbnail_hash: globalSettings.customThumbnailHash };
-    }
+
 
     else {
       thumbnailSource = { thumbnail_url: fallbackThumbnailUrl };
