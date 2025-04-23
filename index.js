@@ -22,24 +22,7 @@ const { createClient } = require('redis');
 const RedisStore = require('connect-redis').default;
 
 
-// Initialize Redis client
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-  legacyMode: true
-});
 
-// Connect to Redis
-redisClient.connect().catch(console.error);
-
-redisClient.on('error', (err) => {
-  console.error('Redis Client Error:', err);
-});
-
-redisClient.on('connect', () => {
-  console.log('Connected to Redis successfully');
-});
-
-// Parse JSON bodies
 app.use(express.json());
 app.set('trust proxy', 1);
 
@@ -49,6 +32,56 @@ app.use(cors({
 }));
 
 app.use(express.static('public'));
+
+// Initialize Redis client
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379',
+  //legacyMode: true
+});
+
+// Connect to Redis
+
+
+// redisClient.on('error', (err) => {
+//   console.error('Redis Client Error:', err);
+// });
+
+// redisClient.on('connect', () => {
+//   console.log('Connected to Redis successfully');
+// });
+
+// Parse JSON bodies
+
+(async () => {
+  try {
+    await redisClient.connect();
+    console.log('Connected to Redis successfully');
+
+    app.use(session({
+      store: new RedisStore({ client: redisClient, prefix: "sess:" }),
+      secret: process.env.SESSION_SECRET || 'your-secret-key',
+      resave: false,
+      saveUninitialized: false,
+      rolling: true,
+      cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+        sameSite: 'none'
+      }
+    }));
+
+    // Start listening only AFTER Redis is ready
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+
+  } catch (err) {
+    console.error("Redis connection failed:", err);
+    process.exit(1); // Crash on purpose so Railway restarts doesn't loop forever
+  }
+})();
 
 
 
@@ -64,22 +97,22 @@ app.use(express.static('public'));
 //   }
 // }));
 
-app.use(session({
-  store: new RedisStore({
-    client: redisClient,
-    prefix: "sess:", // Added a prefix for Redis keys (optional but recommended)
-  }),
-  secret: process.env.SESSION_SECRET || 'your-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  rolling: true,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'none'
-  }
-}));
+// app.use(session({
+//   store: new RedisStore({
+//     client: redisClient,
+//     prefix: "sess:", // Added a prefix for Redis keys (optional but recommended)
+//   }),
+//   secret: process.env.SESSION_SECRET || 'your-secret-key',
+//   resave: false,
+//   saveUninitialized: false,
+//   rolling: true,
+//   cookie: {
+//     secure: process.env.NODE_ENV === 'production',
+//     httpOnly: true,
+//     maxAge: 30 * 24 * 60 * 60 * 1000, // 24 hours
+//     sameSite: 'none'
+//   }
+// }));
 
 
 function buildCreativeEnhancementsConfig(firestoreSettings = {}) {
