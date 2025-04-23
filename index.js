@@ -18,7 +18,25 @@ const {
   getAdAccountSettings,
   deleteCopyTemplate,
 } = require("./firebaseController");
+const { createClient } = require('redis');
+const RedisStore = require('connect-redis').default;
 
+
+// Initialize Redis client
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+
+// Connect to Redis
+redisClient.connect().catch(console.error);
+
+redisClient.on('error', (err) => {
+  console.error('Redis Client Error:', err);
+});
+
+redisClient.on('connect', () => {
+  console.log('Connected to Redis successfully');
+});
 
 // Parse JSON bodies
 app.use(express.json());
@@ -31,17 +49,34 @@ app.use(cors({
 
 app.use(express.static('public'));
 
+
+
+// app.use(session({
+//   secret: process.env.SESSION_SECRET || 'your-secret-key',
+//   resave: false,
+//   saveUninitialized: false,
+//   cookie: {
+//     secure: process.env.NODE_ENV === 'production',
+//     httpOnly: true,
+//     maxAge: 24 * 60 * 60 * 1000, // 24 hours
+//     sameSite: 'none'
+//   }
+// }));
+
 app.use(session({
+  store: new RedisStore({ client: redisClient }),
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
+  rolling: true,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 24 hours
     sameSite: 'none'
   }
 }));
+
 
 function buildCreativeEnhancementsConfig(firestoreSettings = {}) {
   return {
@@ -1079,4 +1114,17 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+});
+
+process.on('SIGINT', async () => {
+  console.log('Shutting down server...');
+
+  try {
+    await redisClient.quit();
+    console.log('Redis client disconnected');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during shutdown:', err);
+    process.exit(1);
+  }
 });
