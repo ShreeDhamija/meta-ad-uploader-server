@@ -931,7 +931,7 @@ app.post("/auth/manual-login", async (req, res) => {
 
   try {
     // Retrieve your Facebook-linked user
-    const facebookId = "your_facebook_id"; // replace with the actual Facebook ID in Firestore
+    const facebookId = "10236978990363167"; // replace with the actual Facebook ID in Firestore
     const userData = await getUserByFacebookId(facebookId);
 
     if (!userData) return res.status(404).json({ error: "User not found" });
