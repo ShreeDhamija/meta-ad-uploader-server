@@ -33,7 +33,7 @@ app.use(express.static('public'));
 // const { FirestoreStore } = require('@google-cloud/connect-firestore');
 // const firestore = new Firestore();
 const STATIC_LOGIN = {
-  email: "metatest",
+  username: "metatest",
   password: "password", // ideally use env variable
 };
 
