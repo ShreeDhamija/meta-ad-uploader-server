@@ -18,7 +18,7 @@ const {
   getAdAccountSettings,
   deleteCopyTemplate,
 } = require("./firebaseController");
-const { createClient } = require('redis');
+const redis = require('redis');
 const RedisStore = require('connect-redis').default;
 
 
@@ -34,7 +34,7 @@ app.use(cors({
 app.use(express.static('public'));
 
 // Initialize Redis client
-const redisClient = createClient({
+const redisClient = redis.createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379',
   legacyMode: true
 });
@@ -55,13 +55,17 @@ redisClient.on('error', (err) => {
   console.error('Redis Client Error:', err);
 });
 
+let redisStore = new RedisStore({
+  client: redisClient,
+});
+
 (async () => {
   try {
     await redisClient.connect();
     console.log('Connected to Redis successfully');
 
     app.use(session({
-      store: new RedisStore({ client: redisClient }),
+      store: redisStore,
       secret: process.env.SESSION_SECRET || 'your-secret-key',
       resave: false,
       saveUninitialized: false,
