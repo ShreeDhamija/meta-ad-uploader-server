@@ -32,6 +32,10 @@ app.use(express.static('public'));
 // const { Firestore } = require('@google-cloud/firestore');
 // const { FirestoreStore } = require('@google-cloud/connect-firestore');
 // const firestore = new Firestore();
+const STATIC_LOGIN = {
+  email: "tester@gmail.com",
+  password: "password", // ideally use env variable
+};
 
 
 
@@ -915,6 +919,35 @@ app.post("/settings/delete-template", async (req, res) => {
   } catch (err) {
     console.error("Delete template error:", err);
     return res.status(500).json({ error: "Failed to delete template" });
+  }
+});
+
+
+app.post("/auth/manual-login", async (req, res) => {
+  const { email, password } = req.body;
+  if (email !== STATIC_LOGIN.email || password !== STATIC_LOGIN.password) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+
+  try {
+    // Retrieve your Facebook-linked user
+    const facebookId = "your_facebook_id"; // replace with the actual Facebook ID in Firestore
+    const userData = await getUserByFacebookId(facebookId);
+
+    if (!userData) return res.status(404).json({ error: "User not found" });
+
+    req.session.user = {
+      name: userData.name,
+      email: userData.email,
+      facebookId,
+      profilePicUrl: userData.picture?.data?.url || "",
+    };
+    req.session.accessToken = userData.accessToken;
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("Manual login error:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
