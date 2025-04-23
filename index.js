@@ -29,21 +29,41 @@ app.use(express.static('public'));
 
 // Session setup using ioredis (no async wrapper needed)
 
+const { Firestore } = require('@google-cloud/firestore');
+const { FirestoreStore } = require('@google-cloud/connect-firestore');
+const firestore = new Firestore();
 
 
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'none'
-  }
-}));
 
+// app.use(session({
+//   secret: process.env.SESSION_SECRET || 'your-secret-key',
+//   resave: false,
+//   saveUninitialized: false,
+//   cookie: {
+//     secure: process.env.NODE_ENV === 'production',
+//     httpOnly: true,
+//     maxAge: 24 * 60 * 60 * 1000, // 24 hours
+//     sameSite: 'none'
+//   }
+// }));
 
+app.use(
+  session({
+    store: new FirestoreStore({
+      dataset: firestore,
+      kind: 'express-sessions', // Collection name in Firestore
+    }),
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      sameSite: 'none',
+    },
+  })
+);
 
 
 function buildCreativeEnhancementsConfig(firestoreSettings = {}) {
