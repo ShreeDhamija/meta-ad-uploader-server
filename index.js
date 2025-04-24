@@ -19,7 +19,7 @@ const {
   deleteCopyTemplate,
 } = require("./firebaseController");
 const { createClient } = require('redis');
-const { RedisStore } = require('connect-redis').default;
+const RedisStore = require('connect-redis').default;
 
 
 app.use(express.json());
