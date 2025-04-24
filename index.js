@@ -20,7 +20,7 @@ const {
 } = require("./firebaseController");
 
 const { createClient } = require('redis');
-const ConnectRedis = require('connect-redis');
+const RedisStore = require('connect-redis').default;
 
 app.use(express.json());
 app.set('trust proxy', 1);
@@ -36,7 +36,7 @@ const STATIC_LOGIN = {
   password: "password", // ideally use env variable
 };
 
-const RedisStore = ConnectRedis.default(session);
+
 
 // Initialize client
 const redisClient = createClient({ url: process.env.REDIS_URL });
