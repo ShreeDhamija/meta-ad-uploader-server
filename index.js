@@ -27,11 +27,7 @@ app.use(cors({
 }));
 app.use(express.static('public'));
 
-// Session setup using ioredis (no async wrapper needed)
 
-// const { Firestore } = require('@google-cloud/firestore');
-// const { FirestoreStore } = require('@google-cloud/connect-firestore');
-// const firestore = new Firestore();
 const STATIC_LOGIN = {
   username: "metatest",
   password: "password", // ideally use env variable
@@ -1137,15 +1133,15 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
 
-process.on('SIGINT', async () => {
-  console.log('Shutting down server...');
+// process.on('SIGINT', async () => {
+//   console.log('Shutting down server...');
 
-  try {
-    await redisClient.quit();
-    console.log('Redis client disconnected');
-    process.exit(0);
-  } catch (err) {
-    console.error('Error during shutdown:', err);
-    process.exit(1);
-  }
-});
+//   try {
+//     await redisClient.quit();
+//     console.log('Redis client disconnected');
+//     process.exit(0);
+//   } catch (err) {
+//     console.error('Error during shutdown:', err);
+//     process.exit(1);
+//   }
+// });
