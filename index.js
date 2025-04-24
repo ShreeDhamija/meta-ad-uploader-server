@@ -21,12 +21,19 @@ const {
 const { createClient } = require('redis');
 const { RedisStore } = require('connect-redis');
 
-app.use(express.json());
-app.set('trust proxy', 1);
 app.use(cors({
   origin: 'https://batchadupload.vercel.app', // Replace with your React app's origin
   credentials: true // This enables sending cookies from the client
 }));
+
+
+app.options("*", cors({
+  origin: 'https://batchadupload.vercel.app',
+  credentials: true
+}));
+
+app.use(express.json());
+app.set('trust proxy', 1);
 app.use(express.static('public'));
 
 
