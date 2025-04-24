@@ -39,7 +39,7 @@ const STATIC_LOGIN = {
 
 
 // Initialize client
-const redisClient = createClient({ url: process.env.REDIS_URL });
+const redisClient = createClient({ url: "rediss://default:AW3HAAIjcDE4ZjhlZWE5ZjAwOGI0N2VmYWZlNjhlYmIxYTBmNTY2NnAxMA@cuddly-crab-28103.upstash.io:6379" });
 
 // Set up error handler
 redisClient.on('error', (err) => {
