@@ -19,7 +19,7 @@ const {
   deleteCopyTemplate,
 } = require("./firebaseController");
 const { createClient } = require('redis');
-const connectRedis = require('connect-redis');
+const connectRedis = require('connect-redis').default;
 const RedisStore = connectRedis(session);
 
 
