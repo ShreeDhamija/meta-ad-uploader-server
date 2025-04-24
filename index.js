@@ -20,7 +20,7 @@ const {
 } = require("./firebaseController");
 
 const { createClient } = require('redis');
-const ConnectRedis = require('connect-redis').default;
+const ConnectRedis = require('connect-redis');
 
 app.use(express.json());
 app.set('trust proxy', 1);
@@ -1152,10 +1152,10 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
 
 
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// const PORT = process.env.PORT || 3000;
+// app.listen(PORT, () => {
+//   console.log(`Server running on http://localhost:${PORT}`);
+// });
 
 // process.on('SIGINT', async () => {
 //   console.log('Shutting down server...');
