@@ -148,6 +148,79 @@ app.get('/auth/facebook', (req, res) => {
 });
 
 
+// app.get('/auth/callback', async (req, res) => {
+//   const { code } = req.query;
+//   if (!code) {
+//     return res.status(400).json({ error: 'Authorization code missing' });
+//   }
+
+//   try {
+//     // 1. Exchange for short-lived token
+//     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
+//       params: {
+//         client_id: process.env.META_APP_ID,
+//         client_secret: process.env.META_APP_SECRET,
+//         redirect_uri: 'https://meta-ad-uploader-server-production.up.railway.app/auth/callback',
+//         code: code
+//       }
+//     });
+
+//     const { access_token: shortLivedToken } = tokenResponse.data;
+
+//     // 2. Exchange for long-lived token
+//     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
+//       params: {
+//         grant_type: 'fb_exchange_token',
+//         client_id: process.env.META_APP_ID,
+//         client_secret: process.env.META_APP_SECRET,
+//         fb_exchange_token: shortLivedToken
+//       }
+//     });
+
+//     const { access_token: longLivedToken } = longLivedResponse.data;
+
+//     // 3. Store token in session + fetch user info
+//     req.session.accessToken = longLivedToken;
+//     userData.accessToken = longLivedToken;
+
+//     const meResponse = await axios.get('https://graph.facebook.com/v21.0/me', {
+//       params: {
+//         access_token: longLivedToken,
+//         fields: 'id,name,email,picture'
+//       }
+//     });
+
+//     const { id: facebookId, name, email, picture } = meResponse.data;
+
+//     req.session.user = {
+//       name,
+//       facebookId, // ✅ this is critical
+//       email,
+//       profilePicUrl: picture?.data?.url || ""
+//     };
+
+
+
+
+//     // ✅ 4. Firestore Integration — add or update user
+//     await createOrUpdateUser({
+//       facebookId,
+//       name,
+//       email,
+//       picture,
+//       accessToken: longLivedToken
+//     })
+
+
+//     // 5. Final redirect
+//     res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
+
+//   } catch (error) {
+//     console.error('OAuth Callback Error:', error.response?.data || error.message);
+//     res.status(500).json({ error: 'Failed to complete Facebook Login' });
+//   }
+// });
+
 app.get('/auth/callback', async (req, res) => {
   const { code } = req.query;
   if (!code) {
@@ -155,6 +228,8 @@ app.get('/auth/callback', async (req, res) => {
   }
 
   try {
+    console.log("🔁 Starting OAuth flow with code:", code);
+
     // 1. Exchange for short-lived token
     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
       params: {
@@ -166,6 +241,7 @@ app.get('/auth/callback', async (req, res) => {
     });
 
     const { access_token: shortLivedToken } = tokenResponse.data;
+    console.log("✅ Short-lived token received");
 
     // 2. Exchange for long-lived token
     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
@@ -178,10 +254,10 @@ app.get('/auth/callback', async (req, res) => {
     });
 
     const { access_token: longLivedToken } = longLivedResponse.data;
+    console.log("✅ Long-lived token received");
 
-    // 3. Store token in session + fetch user info
+    // 3. Store token in session
     req.session.accessToken = longLivedToken;
-    userData.accessToken = longLivedToken;
 
     const meResponse = await axios.get('https://graph.facebook.com/v21.0/me', {
       params: {
@@ -194,24 +270,34 @@ app.get('/auth/callback', async (req, res) => {
 
     req.session.user = {
       name,
-      facebookId, // ✅ this is critical
+      facebookId,
       email,
       profilePicUrl: picture?.data?.url || ""
     };
 
+    console.log("📦 Session about to be saved:", req.session);
 
-    // ✅ 4. Firestore Integration — add or update user
-    await createOrUpdateUser({
-      facebookId,
-      name,
-      email,
-      picture,
-      accessToken: longLivedToken
-    })
+    // 4. Save session before redirect
+    req.session.save(async (err) => {
+      if (err) {
+        console.error("❌ Session save failed:", err);
+        return res.status(500).send("Session save error");
+      }
 
+      console.log("✅ Session saved successfully");
 
-    // 5. Final redirect
-    res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
+      // 5. Update Firestore
+      await createOrUpdateUser({
+        facebookId,
+        name,
+        email,
+        picture,
+        accessToken: longLivedToken
+      });
+
+      // 6. Redirect
+      res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
+    });
 
   } catch (error) {
     console.error('OAuth Callback Error:', error.response?.data || error.message);
