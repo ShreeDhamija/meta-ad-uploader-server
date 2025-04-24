@@ -19,7 +19,8 @@ const {
   deleteCopyTemplate,
 } = require("./firebaseController");
 const { createClient } = require('redis');
-const RedisStore = require('connect-redis').default;
+const connectRedis = require('connect-redis');
+const RedisStore = connectRedis(session);
 
 
 app.use(express.json());
@@ -30,12 +31,18 @@ app.use(cors({
 }));
 app.use(express.static('public'));
 
-let redisClient = createClient()
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+
 redisClient.connect().catch(console.error)
-let redisStore = new RedisStore({
+const redisStore = new RedisStore({
   client: redisClient,
   prefix: "metaadupload:",
 })
+
+redisClient.on('error', (err) => console.log('Redis Client Error', err));
+redisClient.on('connect', () => console.log('Redis Client Connected'));
 
 app.use(
   session({
