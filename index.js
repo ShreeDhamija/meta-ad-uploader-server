@@ -8,7 +8,7 @@ const dotenvResult = require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const app = express();
-const { db } = require("./firebase");
+const { db, auth } = require("./firebase");
 const {
   createOrUpdateUser,
   getUserByFacebookId,
@@ -163,12 +163,12 @@ app.get('/auth/callback', async (req, res) => {
 
     const { id: facebookId, name, email, picture } = meResponse.data;
 
-    req.session.user = {
-      name,
-      facebookId, // ✅ this is critical
-      email,
-      profilePicUrl: picture?.data?.url || ""
-    };
+    // req.session.user = {
+    //   name,
+    //   facebookId, // ✅ this is critical
+    //   email,
+    //   profilePicUrl: picture?.data?.url || ""
+    // };
 
 
     // ✅ 4. Firestore Integration — add or update user
@@ -180,9 +180,23 @@ app.get('/auth/callback', async (req, res) => {
       accessToken: longLivedToken
     })
 
+    try {
+      await auth.getUser(facebookId);
+    } catch {
+      await auth.createUser({
+        uid: facebookId,
+        email,
+        displayName: name,
+        photoURL: picture?.data?.url || "",
+      });
+    }
+
+    // 3. Create Firebase token
+    const firebaseToken = await auth.createCustomToken(facebookId);
+
 
     // 5. Final redirect
-    res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
+    //res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
 
   } catch (error) {
     console.error('OAuth Callback Error:', error.response?.data || error.message);
