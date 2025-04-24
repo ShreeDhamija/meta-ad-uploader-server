@@ -52,16 +52,22 @@ redisClient.on('ready', () => {
 
     app.use(session({
       store: new RedisStore({ client: redisClient }),
-      secret: 'keyboard cat',
+      secret: process.env.SESSION_SECRET || 'your-secret-key',
       resave: false,
       saveUninitialized: false,
-      cookie: { secure: false, httpOnly: true }
+      cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        sameSite: 'none'
+      }
     }));
 
     app.get('/', (req, res) => {
       req.session.viewCount = (req.session.viewCount || 0) + 1;
       res.send(`Viewed ${req.session.viewCount} times`);
     });
+
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
@@ -216,7 +222,6 @@ app.get('/auth/callback', async (req, res) => {
 
 app.get("/auth/me", async (req, res) => {
   const sessionUser = req.session.user
-
   if (!sessionUser) {
     return res.status(401).json({ error: "Not authenticated" })
   }
