@@ -19,8 +19,7 @@ const {
   deleteCopyTemplate,
 } = require("./firebaseController");
 const { createClient } = require('redis');
-const connectRedis = require('connect-redis').default;
-const RedisStore = connectRedis(session);
+const RedisStore = require('connect-redis').default;
 
 
 app.use(express.json());
@@ -32,7 +31,7 @@ app.use(cors({
 app.use(express.static('public'));
 
 const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
+  url: "rediss://default:Sainath@1@cuddly-crab-28103.upstash.io:6379"
 });
 
 redisClient.connect().catch(console.error)
