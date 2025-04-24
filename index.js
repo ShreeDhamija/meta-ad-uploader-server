@@ -18,6 +18,8 @@ const {
   getAdAccountSettings,
   deleteCopyTemplate,
 } = require("./firebaseController");
+const verifyFirebaseToken = require("./middleware/verifyFirebaseToken");
+
 
 app.use(express.json());
 app.set('trust proxy', 1);
@@ -966,12 +968,9 @@ app.post("/auth/manual-login", async (req, res) => {
 });
 
 
-app.get("/settings/global", async (req, res) => {
-  const sessionUser = req.session.user;
-  if (!sessionUser) return res.status(401).json({ error: "Not authenticated" });
-
+app.get("/settings/global", verifyFirebaseToken, async (req, res) => {
   try {
-    const settings = await getGlobalSettings(sessionUser.facebookId);
+    const settings = await getGlobalSettings(req.user.uid); // Facebook ID = Firebase UID
     res.json({ settings });
   } catch (err) {
     console.error("Global settings fetch error:", err);
@@ -979,20 +978,19 @@ app.get("/settings/global", async (req, res) => {
   }
 });
 
-app.get("/settings/ad-account", async (req, res) => {
-  const sessionUser = req.session.user;
+app.get("/settings/ad-account", verifyFirebaseToken, async (req, res) => {
   const { adAccountId } = req.query;
-  if (!sessionUser) return res.status(401).json({ error: "Not authenticated" });
   if (!adAccountId) return res.status(400).json({ error: "Missing adAccountId" });
 
   try {
-    const settings = await getAdAccountSettings(sessionUser.facebookId, adAccountId);
+    const settings = await getAdAccountSettings(req.user.uid, adAccountId); // Facebook ID = Firebase UID
     res.json({ settings });
   } catch (err) {
     console.error("Ad account settings fetch error:", err);
     res.status(500).json({ error: "Failed to fetch ad account settings" });
   }
 });
+
 
 
 // Helper: Process multiple images for dynamic creative.
