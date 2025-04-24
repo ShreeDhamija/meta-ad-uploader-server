@@ -18,6 +18,8 @@ const {
   getAdAccountSettings,
   deleteCopyTemplate,
 } = require("./firebaseController");
+const { createClient } = require('redis');
+const { RedisStore } = require('connect-redis');
 
 app.use(express.json());
 app.set('trust proxy', 1);
@@ -33,37 +35,57 @@ const STATIC_LOGIN = {
   password: "password", // ideally use env variable
 };
 
+const redisClient = createClient({
+  url: "rediss://default:AW3HAAIjcDE4ZjhlZWE5ZjAwOGI0N2VmYWZlNjhlYmIxYTBmNTY2NnAxMA@cuddly-crab-28103.upstash.io:6379"
+});
+redisClient.on('error', (err) => {
+  console.error('Redis Client Error:', err);
+});
 
+redisClient.on('ready', () => {
+  console.log('✅ Redis client is ready');
+});
 
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'none'
+(async () => {
+  try {
+    await redisClient.connect();
+
+    app.use(session({
+      store: new RedisStore({ client: redisClient }),
+      secret: 'keyboard cat',
+      resave: false,
+      saveUninitialized: false,
+      cookie: { secure: false, httpOnly: true }
+    }));
+
+    app.get('/', (req, res) => {
+      req.session.viewCount = (req.session.viewCount || 0) + 1;
+      res.send(`Viewed ${req.session.viewCount} times`);
+    });
+
+    app.listen(3000, () => {
+      console.log('Server running at http://localhost:3000');
+    });
+  } catch (err) {
+    console.error('Failed to connect Redis:', err);
+    process.exit(1);
   }
-}));
+})();
 
-// app.use(
-//   session({
-//     store: new FirestoreStore({
-//       dataset: firestore,
-//       kind: 'express-sessions', // Collection name in Firestore
-//     }),
-//     secret: process.env.SESSION_SECRET || 'your-secret-key',
-//     resave: false,
-//     saveUninitialized: true,
-//     cookie: {
-//       secure: process.env.NODE_ENV === 'production',
-//       httpOnly: true,
-//       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-//       sameSite: 'none',
-//     },
-//   })
-// );
+
+// app.use(session({
+//   secret: process.env.SESSION_SECRET || 'your-secret-key',
+//   resave: false,
+//   saveUninitialized: false,
+//   cookie: {
+//     secure: process.env.NODE_ENV === 'production',
+//     httpOnly: true,
+//     maxAge: 24 * 60 * 60 * 1000, // 24 hours
+//     sameSite: 'none'
+//   }
+// }));
+
+
 
 
 function buildCreativeEnhancementsConfig(firestoreSettings = {}) {
@@ -1128,20 +1150,20 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
 
 
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
-
-// process.on('SIGINT', async () => {
-//   console.log('Shutting down server...');
-
-//   try {
-//     await redisClient.quit();
-//     console.log('Redis client disconnected');
-//     process.exit(0);
-//   } catch (err) {
-//     console.error('Error during shutdown:', err);
-//     process.exit(1);
-//   }
+// const PORT = process.env.PORT || 3000;
+// app.listen(PORT, () => {
+//   console.log(`Server running on http://localhost:${PORT}`);
 // });
+
+process.on('SIGINT', async () => {
+  console.log('Shutting down server...');
+
+  try {
+    await redisClient.quit();
+    console.log('Redis client disconnected');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during shutdown:', err);
+    process.exit(1);
+  }
+});
