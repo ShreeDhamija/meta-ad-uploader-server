@@ -18,22 +18,13 @@ const {
   getAdAccountSettings,
   deleteCopyTemplate,
 } = require("./firebaseController");
-const { createClient } = require('redis');
-const { RedisStore } = require('connect-redis');
 
+app.use(express.json());
+app.set('trust proxy', 1);
 app.use(cors({
   origin: 'https://batchadupload.vercel.app', // Replace with your React app's origin
   credentials: true // This enables sending cookies from the client
 }));
-
-
-app.options("*", cors({
-  origin: 'https://batchadupload.vercel.app',
-  credentials: true
-}));
-
-app.use(express.json());
-app.set('trust proxy', 1);
 app.use(express.static('public'));
 
 
@@ -42,64 +33,37 @@ const STATIC_LOGIN = {
   password: "password", // ideally use env variable
 };
 
-const redisClient = createClient({
-  url: "rediss://default:AW3HAAIjcDE4ZjhlZWE5ZjAwOGI0N2VmYWZlNjhlYmIxYTBmNTY2NnAxMA@cuddly-crab-28103.upstash.io:6379"
-});
-redisClient.on('error', (err) => {
-  console.error('Redis Client Error:', err);
-});
 
-redisClient.on('ready', () => {
-  console.log('✅ Redis client is ready');
-});
 
-(async () => {
-  try {
-    await redisClient.connect();
-
-    app.use(session({
-      store: new RedisStore({ client: redisClient }),
-      secret: process.env.SESSION_SECRET || 'your-secret-key',
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        sameSite: 'none'
-      }
-    }));
-
-    app.get('/', (req, res) => {
-      req.session.viewCount = (req.session.viewCount || 0) + 1;
-      res.send(`Viewed ${req.session.viewCount} times`);
-    });
-
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-
-  } catch (err) {
-    console.error('Failed to connect Redis:', err);
-    process.exit(1);
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'none'
   }
-})();
+}));
 
-
-// app.use(session({
-//   secret: process.env.SESSION_SECRET || 'your-secret-key',
-//   resave: false,
-//   saveUninitialized: false,
-//   cookie: {
-//     secure: process.env.NODE_ENV === 'production',
-//     httpOnly: true,
-//     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-//     sameSite: 'none'
-//   }
-// }));
-
-
+// app.use(
+//   session({
+//     store: new FirestoreStore({
+//       dataset: firestore,
+//       kind: 'express-sessions', // Collection name in Firestore
+//     }),
+//     secret: process.env.SESSION_SECRET || 'your-secret-key',
+//     resave: false,
+//     saveUninitialized: true,
+//     cookie: {
+//       secure: process.env.NODE_ENV === 'production',
+//       httpOnly: true,
+//       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+//       sameSite: 'none',
+//     },
+//   })
+// );
 
 
 function buildCreativeEnhancementsConfig(firestoreSettings = {}) {
@@ -155,79 +119,6 @@ app.get('/auth/facebook', (req, res) => {
 });
 
 
-// app.get('/auth/callback', async (req, res) => {
-//   const { code } = req.query;
-//   if (!code) {
-//     return res.status(400).json({ error: 'Authorization code missing' });
-//   }
-
-//   try {
-//     // 1. Exchange for short-lived token
-//     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
-//       params: {
-//         client_id: process.env.META_APP_ID,
-//         client_secret: process.env.META_APP_SECRET,
-//         redirect_uri: 'https://meta-ad-uploader-server-production.up.railway.app/auth/callback',
-//         code: code
-//       }
-//     });
-
-//     const { access_token: shortLivedToken } = tokenResponse.data;
-
-//     // 2. Exchange for long-lived token
-//     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
-//       params: {
-//         grant_type: 'fb_exchange_token',
-//         client_id: process.env.META_APP_ID,
-//         client_secret: process.env.META_APP_SECRET,
-//         fb_exchange_token: shortLivedToken
-//       }
-//     });
-
-//     const { access_token: longLivedToken } = longLivedResponse.data;
-
-//     // 3. Store token in session + fetch user info
-//     req.session.accessToken = longLivedToken;
-//     userData.accessToken = longLivedToken;
-
-//     const meResponse = await axios.get('https://graph.facebook.com/v21.0/me', {
-//       params: {
-//         access_token: longLivedToken,
-//         fields: 'id,name,email,picture'
-//       }
-//     });
-
-//     const { id: facebookId, name, email, picture } = meResponse.data;
-
-//     req.session.user = {
-//       name,
-//       facebookId, // ✅ this is critical
-//       email,
-//       profilePicUrl: picture?.data?.url || ""
-//     };
-
-
-
-
-//     // ✅ 4. Firestore Integration — add or update user
-//     await createOrUpdateUser({
-//       facebookId,
-//       name,
-//       email,
-//       picture,
-//       accessToken: longLivedToken
-//     })
-
-
-//     // 5. Final redirect
-//     res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
-
-//   } catch (error) {
-//     console.error('OAuth Callback Error:', error.response?.data || error.message);
-//     res.status(500).json({ error: 'Failed to complete Facebook Login' });
-//   }
-// });
-
 app.get('/auth/callback', async (req, res) => {
   const { code } = req.query;
   if (!code) {
@@ -235,8 +126,6 @@ app.get('/auth/callback', async (req, res) => {
   }
 
   try {
-    console.log("🔁 Starting OAuth flow with code:", code);
-
     // 1. Exchange for short-lived token
     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
       params: {
@@ -248,7 +137,6 @@ app.get('/auth/callback', async (req, res) => {
     });
 
     const { access_token: shortLivedToken } = tokenResponse.data;
-    console.log("✅ Short-lived token received");
 
     // 2. Exchange for long-lived token
     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
@@ -261,10 +149,10 @@ app.get('/auth/callback', async (req, res) => {
     });
 
     const { access_token: longLivedToken } = longLivedResponse.data;
-    console.log("✅ Long-lived token received");
 
-    // 3. Store token in session
+    // 3. Store token in session + fetch user info
     req.session.accessToken = longLivedToken;
+    userData.accessToken = longLivedToken;
 
     const meResponse = await axios.get('https://graph.facebook.com/v21.0/me', {
       params: {
@@ -277,34 +165,24 @@ app.get('/auth/callback', async (req, res) => {
 
     req.session.user = {
       name,
-      facebookId,
+      facebookId, // ✅ this is critical
       email,
       profilePicUrl: picture?.data?.url || ""
     };
 
-    console.log("📦 Session about to be saved:", req.session);
 
-    // 4. Save session before redirect
-    req.session.save(async (err) => {
-      if (err) {
-        console.error("❌ Session save failed:", err);
-        return res.status(500).send("Session save error");
-      }
+    // ✅ 4. Firestore Integration — add or update user
+    await createOrUpdateUser({
+      facebookId,
+      name,
+      email,
+      picture,
+      accessToken: longLivedToken
+    })
 
-      console.log("✅ Session saved successfully");
 
-      // 5. Update Firestore
-      await createOrUpdateUser({
-        facebookId,
-        name,
-        email,
-        picture,
-        accessToken: longLivedToken
-      });
-
-      // 6. Redirect
-      res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
-    });
+    // 5. Final redirect
+    res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
 
   } catch (error) {
     console.error('OAuth Callback Error:', error.response?.data || error.message);
@@ -315,6 +193,7 @@ app.get('/auth/callback', async (req, res) => {
 
 app.get("/auth/me", async (req, res) => {
   const sessionUser = req.session.user
+
   if (!sessionUser) {
     return res.status(401).json({ error: "Not authenticated" })
   }
@@ -1249,20 +1128,20 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
 
 
 
-// const PORT = process.env.PORT || 3000;
-// app.listen(PORT, () => {
-//   console.log(`Server running on http://localhost:${PORT}`);
-// });
-
-process.on('SIGINT', async () => {
-  console.log('Shutting down server...');
-
-  try {
-    await redisClient.quit();
-    console.log('Redis client disconnected');
-    process.exit(0);
-  } catch (err) {
-    console.error('Error during shutdown:', err);
-    process.exit(1);
-  }
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
+
+// process.on('SIGINT', async () => {
+//   console.log('Shutting down server...');
+
+//   try {
+//     await redisClient.quit();
+//     console.log('Redis client disconnected');
+//     process.exit(0);
+//   } catch (err) {
+//     console.error('Error during shutdown:', err);
+//     process.exit(1);
+//   }
+// });
