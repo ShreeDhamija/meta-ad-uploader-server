@@ -62,10 +62,11 @@ redisClient.on('ready', () => {
       req.session.viewCount = (req.session.viewCount || 0) + 1;
       res.send(`Viewed ${req.session.viewCount} times`);
     });
-
-    app.listen(3000, () => {
-      console.log('Server running at http://localhost:3000');
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
     });
+
   } catch (err) {
     console.error('Failed to connect Redis:', err);
     process.exit(1);
