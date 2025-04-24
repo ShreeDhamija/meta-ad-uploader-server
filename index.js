@@ -192,7 +192,11 @@ app.get('/auth/callback', async (req, res) => {
     }
 
     // 3. Create Firebase token
+    console.log("Creating Firebase token for user:", facebookId);
     const firebaseToken = await auth.createCustomToken(facebookId);
+    console.log("Redirecting to frontend with token...");
+    res.redirect(`https://batchadupload.vercel.app/?firebaseToken=${firebaseToken}`);
+
 
 
     // 5. Final redirect
