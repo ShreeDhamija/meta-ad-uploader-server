@@ -53,38 +53,52 @@ redisClient.on('ready', () => {
   console.log('✅ Redis client is ready');
 });
 
-(async () => {
-  try {
-    await redisClient.connect();
-
-    app.use(session({
-      store: new RedisStore({ client: redisClient }),
-      secret: process.env.SESSION_SECRET || 'your-secret-key',
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        sameSite: 'none'
-      }
-    }));
-
-    app.get('/', (req, res) => {
-      req.session.viewCount = (req.session.viewCount || 0) + 1;
-      res.send(`Viewed ${req.session.viewCount} times`);
-    });
-
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-
-  } catch (err) {
-    console.error('Failed to connect Redis:', err);
-    process.exit(1);
+redisClient.connect();
+app.use(session({
+  store: new RedisStore({ client: redisClient }),
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'none'
   }
-})();
+}));
+
+// (async () => {
+//   try {
+//     await redisClient.connect();
+
+//     app.use(session({
+//       store: new RedisStore({ client: redisClient }),
+//       secret: process.env.SESSION_SECRET || 'your-secret-key',
+//       resave: false,
+//       saveUninitialized: false,
+//       cookie: {
+//         secure: process.env.NODE_ENV === 'production',
+//         httpOnly: true,
+//         maxAge: 24 * 60 * 60 * 1000, // 24 hours
+//         sameSite: 'none'
+//       }
+//     }));
+
+//     app.get('/', (req, res) => {
+//       req.session.viewCount = (req.session.viewCount || 0) + 1;
+//       res.send(`Viewed ${req.session.viewCount} times`);
+//     });
+
+//     const PORT = process.env.PORT || 3000;
+//     app.listen(PORT, () => {
+//       console.log(`Server running on http://localhost:${PORT}`);
+//     });
+
+//   } catch (err) {
+//     console.error('Failed to connect Redis:', err);
+//     process.exit(1);
+//   }
+// })();
 
 
 // app.use(session({
@@ -1249,10 +1263,10 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
 
 
 
-// const PORT = process.env.PORT || 3000;
-// app.listen(PORT, () => {
-//   console.log(`Server running on http://localhost:${PORT}`);
-// });
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
 
 process.on('SIGINT', async () => {
   console.log('Shutting down server...');
