@@ -67,38 +67,7 @@ app.use(session({
   }
 }));
 
-// (async () => {
-//   try {
-//     await redisClient.connect();
 
-//     app.use(session({
-//       store: new RedisStore({ client: redisClient }),
-//       secret: process.env.SESSION_SECRET || 'your-secret-key',
-//       resave: false,
-//       saveUninitialized: false,
-//       cookie: {
-//         secure: process.env.NODE_ENV === 'production',
-//         httpOnly: true,
-//         maxAge: 24 * 60 * 60 * 1000, // 24 hours
-//         sameSite: 'none'
-//       }
-//     }));
-
-//     app.get('/', (req, res) => {
-//       req.session.viewCount = (req.session.viewCount || 0) + 1;
-//       res.send(`Viewed ${req.session.viewCount} times`);
-//     });
-
-//     const PORT = process.env.PORT || 3000;
-//     app.listen(PORT, () => {
-//       console.log(`Server running on http://localhost:${PORT}`);
-//     });
-
-//   } catch (err) {
-//     console.error('Failed to connect Redis:', err);
-//     process.exit(1);
-//   }
-// })();
 
 
 // app.use(session({
@@ -249,7 +218,7 @@ app.get('/auth/callback', async (req, res) => {
   }
 
   try {
-    console.log("🔁 Starting OAuth flow with code:", code);
+    //console.log("🔁 Starting OAuth flow with code:", code);
 
     // 1. Exchange for short-lived token
     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
@@ -262,7 +231,7 @@ app.get('/auth/callback', async (req, res) => {
     });
 
     const { access_token: shortLivedToken } = tokenResponse.data;
-    console.log("✅ Short-lived token received");
+    //console.log("✅ Short-lived token received");
 
     // 2. Exchange for long-lived token
     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
@@ -275,7 +244,7 @@ app.get('/auth/callback', async (req, res) => {
     });
 
     const { access_token: longLivedToken } = longLivedResponse.data;
-    console.log("✅ Long-lived token received");
+    //console.log("✅ Long-lived token received");
 
     // 3. Store token in session
     req.session.accessToken = longLivedToken;
