@@ -43,7 +43,7 @@ const STATIC_LOGIN = {
 };
 
 const redisClient = createClient({
-  url: "rediss://default:AW3HAAIjcDE4ZjhlZWE5ZjAwOGI0N2VmYWZlNjhlYmIxYTBmNTY2NnAxMA@cuddly-crab-28103.upstash.io:6379"
+  url: process.env.REDIS_URL
 });
 redisClient.on('error', (err) => {
   console.error('Redis Client Error:', err);
@@ -59,6 +59,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
+  rolling: true,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
@@ -66,23 +67,6 @@ app.use(session({
     sameSite: 'none'
   }
 }));
-
-
-
-
-// app.use(session({
-//   secret: process.env.SESSION_SECRET || 'your-secret-key',
-//   resave: false,
-//   saveUninitialized: false,
-//   cookie: {
-//     secure: process.env.NODE_ENV === 'production',
-//     httpOnly: true,
-//     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-//     sameSite: 'none'
-//   }
-// }));
-
-
 
 
 function buildCreativeEnhancementsConfig(firestoreSettings = {}) {
@@ -138,78 +122,6 @@ app.get('/auth/facebook', (req, res) => {
 });
 
 
-// app.get('/auth/callback', async (req, res) => {
-//   const { code } = req.query;
-//   if (!code) {
-//     return res.status(400).json({ error: 'Authorization code missing' });
-//   }
-
-//   try {
-//     // 1. Exchange for short-lived token
-//     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
-//       params: {
-//         client_id: process.env.META_APP_ID,
-//         client_secret: process.env.META_APP_SECRET,
-//         redirect_uri: 'https://meta-ad-uploader-server-production.up.railway.app/auth/callback',
-//         code: code
-//       }
-//     });
-
-//     const { access_token: shortLivedToken } = tokenResponse.data;
-
-//     // 2. Exchange for long-lived token
-//     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
-//       params: {
-//         grant_type: 'fb_exchange_token',
-//         client_id: process.env.META_APP_ID,
-//         client_secret: process.env.META_APP_SECRET,
-//         fb_exchange_token: shortLivedToken
-//       }
-//     });
-
-//     const { access_token: longLivedToken } = longLivedResponse.data;
-
-//     // 3. Store token in session + fetch user info
-//     req.session.accessToken = longLivedToken;
-//     userData.accessToken = longLivedToken;
-
-//     const meResponse = await axios.get('https://graph.facebook.com/v21.0/me', {
-//       params: {
-//         access_token: longLivedToken,
-//         fields: 'id,name,email,picture'
-//       }
-//     });
-
-//     const { id: facebookId, name, email, picture } = meResponse.data;
-
-//     req.session.user = {
-//       name,
-//       facebookId, // ✅ this is critical
-//       email,
-//       profilePicUrl: picture?.data?.url || ""
-//     };
-
-
-
-
-//     // ✅ 4. Firestore Integration — add or update user
-//     await createOrUpdateUser({
-//       facebookId,
-//       name,
-//       email,
-//       picture,
-//       accessToken: longLivedToken
-//     })
-
-
-//     // 5. Final redirect
-//     res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
-
-//   } catch (error) {
-//     console.error('OAuth Callback Error:', error.response?.data || error.message);
-//     res.status(500).json({ error: 'Failed to complete Facebook Login' });
-//   }
-// });
 
 app.get('/auth/callback', async (req, res) => {
   const { code } = req.query;
