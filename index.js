@@ -955,7 +955,9 @@ app.get('/auth/generate-ad-preview', async (req, res) => {
           // 🖼 Extract preview URL from previewData
           const match = previewData.body.match(/src="([^"]+)"/);
           if (match && match[1]) {
-            console.log(`🌐 Preview URL for Ad ID ${ad.id}: ${match[1]}`);
+            const rawUrl = match[1];
+            const cleanUrl = rawUrl.replace(/&amp;/g, "&");
+            console.log(`🌐 Preview URL: ${cleanUrl}`);
           } else {
             console.warn(`⚠️ Could not extract preview URL for Ad ID ${ad.id}`);
           }
