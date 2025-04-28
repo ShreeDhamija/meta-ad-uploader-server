@@ -882,7 +882,24 @@ app.post(
           );
         }
       }
-      return res.json(result);
+      // After getting `result`
+      console.log("✅ Ad Created. Creative ID:", result.creative_id);
+
+      // TEMPORARY: Test preview generation immediately
+      try {
+        const previewUrl = `https://graph.facebook.com/v22.0/${result.creative_id}/previews`;
+        const previewResponse = await axios.get(previewUrl, {
+          params: {
+            access_token: token,
+            ad_format: 'MOBILE_FEED_STANDARD'
+          }
+        });
+        console.log("🖼️ Preview generated:", previewResponse.data.data[0]?.body || "No preview body");
+      } catch (error) {
+        console.error("❌ Failed to generate preview immediately after ad creation:", error.response?.data || error.message);
+      }
+
+      return res.json({ ...result, creativeId: result.creative_id });
     } catch (error) {
       console.error('Create Ad Error:', error.response?.data || error.message);
       cleanupUploadedFiles(req.files); // 🧼 cleanup
@@ -891,6 +908,31 @@ app.post(
     }
   }
 );
+
+app.get('/auth/generate-ad-preview', async (req, res) => {
+  const token = req.session.accessToken;
+  if (!token) return res.status(401).json({ error: 'User not authenticated' });
+
+  const { creativeId } = req.query;
+  if (!creativeId) return res.status(400).json({ error: 'Missing creativeId' });
+
+  try {
+    const previewUrl = `https://graph.facebook.com/v22.0/${creativeId}/previews`;
+    const previewResponse = await axios.get(previewUrl, {
+      params: {
+        access_token: token,
+        ad_format: 'MOBILE_FEED_STANDARD' // Or 'DESKTOP_FEED_STANDARD'
+      }
+    });
+
+    const previewData = previewResponse.data.data;
+    res.json({ previews: previewData });
+  } catch (error) {
+    console.error('Generate Preview Error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to generate preview' });
+  }
+});
+
 
 
 //fireBase routes
