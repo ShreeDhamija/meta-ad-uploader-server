@@ -882,26 +882,6 @@ app.post(
           );
         }
       }
-
-
-      try {
-        console.log("🚀 Calling generate-ad-preview internally...");
-
-        const previewResponse = await axios.get('https://meta-ad-uploader-server-production.up.railway.app/auth/generate-ad-preview', {
-          params: { adAccountId },
-          headers: {
-            Cookie: req.headers.cookie // forward the session cookie!
-          }
-        });
-
-        const previews = previewResponse.data.previews || [];
-        console.log(`✅ Successfully generated ${previews.length} previews`);
-
-        //        return true;
-
-      } catch (previewError) {
-        console.error('❌ Error during preview generation after create-ad:', previewError.response?.data || previewError.message);
-      }
       return res.json(result);
     } catch (error) {
       console.error('Create Ad Error:', error.response?.data || error.message);
@@ -921,9 +901,9 @@ app.get('/auth/generate-ad-preview', async (req, res) => {
 
   try {
     const recentAds = await fetchRecentAds(adAccountId, token);
-    console.log(`🆕 Found ${recentAds.length} recent ads created in last 5 minutes`);
+    //console.log(`🆕 Found ${recentAds.length} recent ads created in last 5 minutes`);
     recentAds.forEach(ad => {
-      console.log(`- Ad ID: ${ad.id}, Creative ID: ${ad.creative?.id || 'No creative'}`);
+      //console.log(`- Ad ID: ${ad.id}, Creative ID: ${ad.creative?.id || 'No creative'}`);
     });
 
 
@@ -941,7 +921,7 @@ app.get('/auth/generate-ad-preview', async (req, res) => {
 
       try {
         const previewUrl = `https://graph.facebook.com/v22.0/${ad.creative.id}/previews`;
-        console.log(`📡 Making internal call to: ${previewUrl} with adAccountId=${adAccountId}`);
+        //console.log(`📡 Making internal call to: ${previewUrl} with adAccountId=${adAccountId}`);
         const previewResponse = await axios.get(previewUrl, {
           params: {
             access_token: token,
@@ -950,7 +930,7 @@ app.get('/auth/generate-ad-preview', async (req, res) => {
         });
 
         const previewData = previewResponse.data.data?.[0];
-        console.log(`✅ Successfully fetched preview for Ad ID: ${ad.id}`);
+        // console.log(`✅ Successfully fetched preview for Ad ID: ${ad.id}`);
         if (previewData) {
           // 🖼 Extract preview URL from previewData
           const match = previewData.body.match(/src="([^"]+)"/);
@@ -1090,7 +1070,7 @@ app.get("/settings/ad-account", async (req, res) => {
 async function fetchRecentAds(adAccountId, token) {
   const url = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
 
-  const fiveMinutesAgo = Math.floor((Date.now() - 5 * 60 * 1000) / 1000); // 5 minutes ago, in Unix seconds
+  const fiveMinutesAgo = Math.floor((Date.now() - 60 * 60 * 1000) / 1000); // 5 minutes ago, in Unix seconds
 
   const response = await axios.get(url, {
     params: {
