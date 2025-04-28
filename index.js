@@ -18,13 +18,22 @@ const {
   getAdAccountSettings,
   deleteCopyTemplate,
 } = require("./firebaseController");
+const { createClient } = require('redis');
+const { RedisStore } = require('connect-redis');
 
-app.use(express.json());
-app.set('trust proxy', 1);
 app.use(cors({
   origin: 'https://batchadupload.vercel.app', // Replace with your React app's origin
   credentials: true // This enables sending cookies from the client
 }));
+
+
+app.options("*", cors({
+  origin: 'https://batchadupload.vercel.app',
+  credentials: true
+}));
+
+app.use(express.json());
+app.set('trust proxy', 1);
 app.use(express.static('public'));
 
 
@@ -33,37 +42,32 @@ const STATIC_LOGIN = {
   password: "password", // ideally use env variable
 };
 
+const redisClient = createClient({
+  url: process.env.REDIS_URL
+});
 
+redisClient.on('error', (err) => {
+  console.error('Redis Client Error:', err);
+});
 
+redisClient.on('ready', () => {
+  console.log('✅ Redis client is ready');
+});
+
+redisClient.connect();
 app.use(session({
+  store: new RedisStore({ client: redisClient }),
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
+  rolling: true,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 24 hours
     sameSite: 'none'
   }
 }));
-
-// app.use(
-//   session({
-//     store: new FirestoreStore({
-//       dataset: firestore,
-//       kind: 'express-sessions', // Collection name in Firestore
-//     }),
-//     secret: process.env.SESSION_SECRET || 'your-secret-key',
-//     resave: false,
-//     saveUninitialized: true,
-//     cookie: {
-//       secure: process.env.NODE_ENV === 'production',
-//       httpOnly: true,
-//       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-//       sameSite: 'none',
-//     },
-//   })
-// );
 
 
 function buildCreativeEnhancementsConfig(firestoreSettings = {}) {
@@ -114,9 +118,10 @@ let userData = {};
  * Step 1: Facebook Login - Redirect to Facebook OAuth
  */
 app.get('/auth/facebook', (req, res) => {
-  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic&response_type=code`;
+  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads&response_type=code`;
   res.redirect(redirectUri);
 });
+
 
 
 app.get('/auth/callback', async (req, res) => {
@@ -126,6 +131,8 @@ app.get('/auth/callback', async (req, res) => {
   }
 
   try {
+    //console.log("🔁 Starting OAuth flow with code:", code);
+
     // 1. Exchange for short-lived token
     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
       params: {
@@ -137,6 +144,7 @@ app.get('/auth/callback', async (req, res) => {
     });
 
     const { access_token: shortLivedToken } = tokenResponse.data;
+    //console.log("✅ Short-lived token received");
 
     // 2. Exchange for long-lived token
     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
@@ -149,10 +157,10 @@ app.get('/auth/callback', async (req, res) => {
     });
 
     const { access_token: longLivedToken } = longLivedResponse.data;
+    //console.log("✅ Long-lived token received");
 
-    // 3. Store token in session + fetch user info
+    // 3. Store token in session
     req.session.accessToken = longLivedToken;
-    userData.accessToken = longLivedToken;
 
     const meResponse = await axios.get('https://graph.facebook.com/v21.0/me', {
       params: {
@@ -165,24 +173,34 @@ app.get('/auth/callback', async (req, res) => {
 
     req.session.user = {
       name,
-      facebookId, // ✅ this is critical
+      facebookId,
       email,
       profilePicUrl: picture?.data?.url || ""
     };
 
+    console.log("📦 Session about to be saved:", req.session);
 
-    // ✅ 4. Firestore Integration — add or update user
-    await createOrUpdateUser({
-      facebookId,
-      name,
-      email,
-      picture,
-      accessToken: longLivedToken
-    })
+    // 4. Save session before redirect
+    req.session.save(async (err) => {
+      if (err) {
+        console.error("❌ Session save failed:", err);
+        return res.status(500).send("Session save error");
+      }
 
+      console.log("✅ Session saved successfully");
 
-    // 5. Final redirect
-    res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
+      // 5. Update Firestore
+      await createOrUpdateUser({
+        facebookId,
+        name,
+        email,
+        picture,
+        accessToken: longLivedToken
+      });
+
+      // 6. Redirect
+      res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
+    });
 
   } catch (error) {
     console.error('OAuth Callback Error:', error.response?.data || error.message);
@@ -193,7 +211,6 @@ app.get('/auth/callback', async (req, res) => {
 
 app.get("/auth/me", async (req, res) => {
   const sessionUser = req.session.user
-
   if (!sessionUser) {
     return res.status(401).json({ error: "Not authenticated" })
   }
@@ -1133,15 +1150,15 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
 
-// process.on('SIGINT', async () => {
-//   console.log('Shutting down server...');
+process.on('SIGINT', async () => {
+  console.log('Shutting down server...');
 
-//   try {
-//     await redisClient.quit();
-//     console.log('Redis client disconnected');
-//     process.exit(0);
-//   } catch (err) {
-//     console.error('Error during shutdown:', err);
-//     process.exit(1);
-//   }
-// });
+  try {
+    await redisClient.quit();
+    console.log('Redis client disconnected');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during shutdown:', err);
+    process.exit(1);
+  }
+});
