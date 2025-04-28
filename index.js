@@ -882,6 +882,26 @@ app.post(
           );
         }
       }
+
+
+      try {
+        console.log("🚀 Calling generate-ad-preview internally...");
+
+        const previewResponse = await axios.get('http://localhost:3000/auth/generate-ad-preview', {
+          params: { adAccountId },
+          headers: {
+            Cookie: req.headers.cookie // forward the session cookie!
+          }
+        });
+
+        const previews = previewResponse.data.previews || [];
+        console.log(`✅ Successfully generated ${previews.length} previews`);
+
+        //        return true;
+
+      } catch (previewError) {
+        console.error('❌ Error during preview generation after create-ad:', previewError.response?.data || previewError.message);
+      }
       return res.json(result);
     } catch (error) {
       console.error('Create Ad Error:', error.response?.data || error.message);
