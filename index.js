@@ -882,24 +882,7 @@ app.post(
           );
         }
       }
-      // After getting `result`
-      console.log("✅ Ad Created. Creative ID:", result.creative_id);
-
-      // TEMPORARY: Test preview generation immediately
-      try {
-        const previewUrl = `https://graph.facebook.com/v22.0/${result.creative_id}/previews`;
-        const previewResponse = await axios.get(previewUrl, {
-          params: {
-            access_token: token,
-            ad_format: 'MOBILE_FEED_STANDARD'
-          }
-        });
-        console.log("🖼️ Preview generated:", previewResponse.data.data[0]?.body || "No preview body");
-      } catch (error) {
-        console.error("❌ Failed to generate preview immediately after ad creation:", error.response?.data || error.message);
-      }
-
-      return res.json({ ...result, creativeId: result.creative_id });
+      return res.json(result);
     } catch (error) {
       console.error('Create Ad Error:', error.response?.data || error.message);
       cleanupUploadedFiles(req.files); // 🧼 cleanup
@@ -913,25 +896,61 @@ app.get('/auth/generate-ad-preview', async (req, res) => {
   const token = req.session.accessToken;
   if (!token) return res.status(401).json({ error: 'User not authenticated' });
 
-  const { creativeId } = req.query;
-  if (!creativeId) return res.status(400).json({ error: 'Missing creativeId' });
+  const { adAccountId } = req.query;
+  if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
 
   try {
-    const previewUrl = `https://graph.facebook.com/v22.0/${creativeId}/previews`;
-    const previewResponse = await axios.get(previewUrl, {
-      params: {
-        access_token: token,
-        ad_format: 'MOBILE_FEED_STANDARD' // Or 'DESKTOP_FEED_STANDARD'
-      }
+    const recentAds = await fetchRecentAds(adAccountId, token);
+    console.log(`🆕 Found ${recentAds.length} recent ads created in last 5 minutes`);
+    recentAds.forEach(ad => {
+      console.log(`- Ad ID: ${ad.id}, Creative ID: ${ad.creative?.id || 'No creative'}`);
     });
 
-    const previewData = previewResponse.data.data;
-    res.json({ previews: previewData });
+
+    if (!recentAds.length) {
+      return res.status(404).json({ error: "No recent ads found" });
+    }
+
+    const previews = [];
+
+    for (const ad of recentAds) {
+      if (!ad.creative?.id) {
+        console.warn(`Ad ${ad.id} has no creative linked, skipping.`);
+        continue;
+      }
+
+      try {
+        const previewUrl = `https://graph.facebook.com/v22.0/${ad.creative.id}/previews`;
+        const previewResponse = await axios.get(previewUrl, {
+          params: {
+            access_token: token,
+            ad_format: 'MOBILE_FEED_STANDARD'
+          }
+        });
+
+        const previewData = previewResponse.data.data?.[0];
+        console.log(`✅ Successfully fetched preview for Ad ID: ${ad.id}`);
+        if (previewData) {
+          previews.push({
+            adId: ad.id,
+            creativeId: ad.creative.id,
+            previewHtml: previewData.body, // iframe HTML
+          });
+        }
+      } catch (previewError) {
+        console.error(`Preview generation failed for creative ${ad.creative.id}:`, previewError.response?.data || previewError.message);
+        // Continue to next ad even if this preview fails
+      }
+    }
+
+    res.json({ previews });
   } catch (error) {
     console.error('Generate Preview Error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to generate preview' });
+    res.status(500).json({ error: 'Failed to generate previews' });
   }
 });
+
+
 
 
 
@@ -1034,6 +1053,30 @@ app.get("/settings/ad-account", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch ad account settings" });
   }
 });
+
+//to fetch ad previews
+async function fetchRecentAds(adAccountId, token) {
+  const url = `https://graph.facebook.com/v22.0/act_${adAccountId}/ads`;
+
+  const fiveMinutesAgo = Math.floor((Date.now() - 5 * 60 * 1000) / 1000); // 5 minutes ago, in Unix seconds
+
+  const response = await axios.get(url, {
+    params: {
+      access_token: token,
+      fields: 'id,creative,created_time',
+      limit: 10,
+      filtering: JSON.stringify([
+        {
+          field: "created_time",
+          operator: "GREATER_THAN",
+          value: fiveMinutesAgo
+        }
+      ])
+    }
+  });
+
+  return response.data.data || [];
+}
 
 
 // Helper: Process multiple images for dynamic creative.
