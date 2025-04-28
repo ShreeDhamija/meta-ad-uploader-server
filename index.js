@@ -1077,7 +1077,7 @@ app.get("/settings/ad-account", async (req, res) => {
 
 //to fetch ad previews
 async function fetchRecentAds(adAccountId, token) {
-  const url = `https://graph.facebook.com/v22.0/act_${adAccountId}/ads`;
+  const url = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
 
   const fiveMinutesAgo = Math.floor((Date.now() - 5 * 60 * 1000) / 1000); // 5 minutes ago, in Unix seconds
 
