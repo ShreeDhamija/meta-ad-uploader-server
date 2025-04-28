@@ -952,12 +952,21 @@ app.get('/auth/generate-ad-preview', async (req, res) => {
         const previewData = previewResponse.data.data?.[0];
         console.log(`✅ Successfully fetched preview for Ad ID: ${ad.id}`);
         if (previewData) {
+          // 🖼 Extract preview URL from previewData
+          const match = previewData.body.match(/src="([^"]+)"/);
+          if (match && match[1]) {
+            console.log(`🌐 Preview URL for Ad ID ${ad.id}: ${match[1]}`);
+          } else {
+            console.warn(`⚠️ Could not extract preview URL for Ad ID ${ad.id}`);
+          }
+
           previews.push({
             adId: ad.id,
             creativeId: ad.creative.id,
             previewHtml: previewData.body, // iframe HTML
           });
         }
+
       } catch (previewError) {
         console.error(`Preview generation failed for creative ${ad.creative.id}:`, previewError.response?.data || previewError.message);
         // Continue to next ad even if this preview fails
