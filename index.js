@@ -887,7 +887,7 @@ app.post(
       try {
         console.log("🚀 Calling generate-ad-preview internally...");
 
-        const previewResponse = await axios.get('http://localhost:3000/auth/generate-ad-preview', {
+        const previewResponse = await axios.get('https://meta-ad-uploader-server-production.up.railway.app//auth/generate-ad-preview', {
           params: { adAccountId },
           headers: {
             Cookie: req.headers.cookie // forward the session cookie!
@@ -941,6 +941,7 @@ app.get('/auth/generate-ad-preview', async (req, res) => {
 
       try {
         const previewUrl = `https://graph.facebook.com/v22.0/${ad.creative.id}/previews`;
+        console.log(`📡 Making internal call to: ${previewUrl} with adAccountId=${adAccountId}`);
         const previewResponse = await axios.get(previewUrl, {
           params: {
             access_token: token,
