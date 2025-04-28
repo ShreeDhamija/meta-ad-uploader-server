@@ -887,7 +887,7 @@ app.post(
       try {
         console.log("🚀 Calling generate-ad-preview internally...");
 
-        const previewResponse = await axios.get('https://meta-ad-uploader-server-production.up.railway.app//auth/generate-ad-preview', {
+        const previewResponse = await axios.get('https://meta-ad-uploader-server-production.up.railway.app/auth/generate-ad-preview', {
           params: { adAccountId },
           headers: {
             Cookie: req.headers.cookie // forward the session cookie!
