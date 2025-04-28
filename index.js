@@ -131,7 +131,7 @@ app.get('/auth/callback', async (req, res) => {
   }
 
   try {
-    //console.log("🔁 Starting OAuth flow with code:", code);
+
 
     // 1. Exchange for short-lived token
     const tokenResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
@@ -144,7 +144,7 @@ app.get('/auth/callback', async (req, res) => {
     });
 
     const { access_token: shortLivedToken } = tokenResponse.data;
-    //console.log("✅ Short-lived token received");
+
 
     // 2. Exchange for long-lived token
     const longLivedResponse = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
@@ -178,7 +178,7 @@ app.get('/auth/callback', async (req, res) => {
       profilePicUrl: picture?.data?.url || ""
     };
 
-    console.log("📦 Session about to be saved:", req.session);
+    //console.log("📦 Session about to be saved:", req.session);
 
     // 4. Save session before redirect
     req.session.save(async (err) => {
@@ -187,7 +187,7 @@ app.get('/auth/callback', async (req, res) => {
         return res.status(500).send("Session save error");
       }
 
-      console.log("✅ Session saved successfully");
+      //      console.log("✅ Session saved successfully");
 
       // 5. Update Firestore
       await createOrUpdateUser({
