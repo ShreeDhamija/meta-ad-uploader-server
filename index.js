@@ -782,11 +782,13 @@ app.post(
         params: { access_token: token, fields: 'is_dynamic_creative' }
       });
       const adSetDynamicCreative = adSetInfoResponse.data.is_dynamic_creative;
-      const useDynamicCreative =
-        headlines.length > 1 ||
-        descriptionsArray.length > 1 ||
-        messagesArray.length > 1 ||
-        adSetDynamicCreative;
+      // const useDynamicCreative =
+      //   headlines.length > 1 ||
+      //   descriptionsArray.length > 1 ||
+      //   messagesArray.length > 1 ||
+      //   adSetDynamicCreative;
+
+      const useDynamicCreative = adSetDynamicCreative;
 
       const adAccountSettings = await getAdAccountSettings(req.session.user.facebookId, adAccountId);
 
