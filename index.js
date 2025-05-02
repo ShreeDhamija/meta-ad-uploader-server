@@ -1053,6 +1053,20 @@ app.get("/settings/global", async (req, res) => {
   }
 });
 
+// app.get("/settings/ad-account", async (req, res) => {
+//   const sessionUser = req.session.user;
+//   const { adAccountId } = req.query;
+//   if (!sessionUser) return res.status(401).json({ error: "Not authenticated" });
+//   if (!adAccountId) return res.status(400).json({ error: "Missing adAccountId" });
+
+//   try {
+//     const settings = await getAdAccountSettings(sessionUser.facebookId, adAccountId);
+//     res.json({ settings });
+//   } catch (err) {
+//     console.error("Ad account settings fetch error:", err);
+//     res.status(500).json({ error: "Failed to fetch ad account settings" });
+//   }
+// });
 app.get("/settings/ad-account", async (req, res) => {
   const sessionUser = req.session.user;
   const { adAccountId } = req.query;
@@ -1061,12 +1075,45 @@ app.get("/settings/ad-account", async (req, res) => {
 
   try {
     const settings = await getAdAccountSettings(sessionUser.facebookId, adAccountId);
+    const accessToken = req.session.accessToken;
+
+    // ✅ Fresh fetch for FB Page picture
+    if (settings?.defaultPage?.id) {
+      try {
+        const picRes = await axios.get(`https://graph.facebook.com/v21.0/${settings.defaultPage.id}/picture`, {
+          params: {
+            access_token: accessToken,
+            redirect: false,
+          },
+        });
+        settings.defaultPage.profilePicture = picRes.data?.data?.url || null;
+      } catch (err) {
+        console.warn("Failed to refresh FB page picture:", err.message);
+      }
+    }
+
+    // ✅ Fresh fetch for IG profile picture
+    if (settings?.defaultInstagram?.id) {
+      try {
+        const igRes = await axios.get(`https://graph.facebook.com/v22.0/${settings.defaultInstagram.id}`, {
+          params: {
+            access_token: accessToken,
+            fields: 'username,profile_picture_url',
+          },
+        });
+        settings.defaultInstagram.profilePictureUrl = igRes.data?.profile_picture_url || null;
+      } catch (err) {
+        console.warn("Failed to refresh IG profile picture:", err.message);
+      }
+    }
+
     res.json({ settings });
   } catch (err) {
     console.error("Ad account settings fetch error:", err);
     res.status(500).json({ error: "Failed to fetch ad account settings" });
   }
 });
+
 
 //to fetch ad previews
 async function fetchRecentAds(adAccountId, token) {
