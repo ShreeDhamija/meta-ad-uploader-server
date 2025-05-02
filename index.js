@@ -271,7 +271,7 @@ app.get('/auth/fetch-campaigns', async (req, res) => {
     const campaignsResponse = await axios.get(campaignsUrl, {
       params: {
         access_token: token,
-        fields: 'id,name,status,insights.date_preset(last_7d){spend}',
+        fields: 'id,name,status,insights.date_preset(last_7d){spend},smart_promotiom_type',
 
 
       }
