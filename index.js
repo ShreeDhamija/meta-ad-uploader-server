@@ -118,7 +118,7 @@ let userData = {};
  * Step 1: Facebook Login - Redirect to Facebook OAuth
  */
 app.get('/auth/facebook', (req, res) => {
-  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads&response_type=code`;
+  const redirectUri = "https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads&auth_type=rerequest&response_type=code";
   res.redirect(redirectUri);
 });
 
