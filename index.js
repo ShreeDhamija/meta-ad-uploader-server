@@ -158,6 +158,8 @@ app.get('/auth/callback', async (req, res) => {
 
     const { access_token: longLivedToken } = longLivedResponse.data;
     //console.log("✅ Long-lived token received");
+    console.log("🔑 New long-lived token from Facebook login:", longLivedToken);
+
 
     // 3. Store token in session
     req.session.accessToken = longLivedToken;
@@ -241,6 +243,7 @@ app.get("/auth/me", async (req, res) => {
 
 app.get('/auth/fetch-ad-accounts', async (req, res) => {
   const token = req.session.accessToken;
+  console.log("Session token used to fetch ad accounts:", req.session.accessToken);
   if (!token) return res.status(401).json({ error: 'User not authenticated' });
   try {
     const adAccountsResponse = await axios.get('https://graph.facebook.com/v21.0/me/adaccounts', {
