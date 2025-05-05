@@ -121,6 +121,7 @@ let userData = {};
 //   const redirectUri = "https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads&auth_type=rerequest&response_type=code";
 //   res.redirect(redirectUri);
 // });
+
 app.get('/auth/facebook', async (req, res) => {
   // ✅ Step 1: Revoke old token if it exists
   if (req.session.accessToken) {
@@ -264,25 +265,61 @@ app.get("/auth/me", async (req, res) => {
 
 
 
+// app.get('/auth/fetch-ad-accounts', async (req, res) => {
+//   const token = req.session.accessToken;
+//   console.log("Session token used to fetch ad accounts:", req.session.accessToken);
+//   if (!token) return res.status(401).json({ error: 'User not authenticated' });
+//   try {
+//     const adAccountsResponse = await axios.get('https://graph.facebook.com/v21.0/me/adaccounts', {
+//       params: {
+//         access_token: token,
+//         fields: 'id,account_id,name'
+//       }
+//     });
+//     const adAccounts = adAccountsResponse.data.data;
+//     userData.adAccounts = adAccounts;
+//     res.json({ success: true, adAccounts });
+//   } catch (error) {
+//     console.error('Fetch Ad Accounts Error:', error.response?.data || error.message);
+//     res.status(500).json({ error: 'Failed to fetch ad accounts' });
+//   }
+// });
 app.get('/auth/fetch-ad-accounts', async (req, res) => {
   const token = req.session.accessToken;
-  console.log("Session token used to fetch ad accounts:", req.session.accessToken);
   if (!token) return res.status(401).json({ error: 'User not authenticated' });
+
   try {
-    const adAccountsResponse = await axios.get('https://graph.facebook.com/v21.0/me/adaccounts', {
-      params: {
-        access_token: token,
-        fields: 'id,account_id,name'
-      }
+    // Step 1: Get businesses
+    const businessesRes = await axios.get('https://graph.facebook.com/v17.0/me/businesses', {
+      params: { access_token: token }
     });
-    const adAccounts = adAccountsResponse.data.data;
-    userData.adAccounts = adAccounts;
+
+    const businesses = businessesRes.data.data;
+    let adAccounts = [];
+
+    // Step 2: For each business, fetch owned ad accounts
+    for (const business of businesses) {
+      try {
+        const adsRes = await axios.get(`https://graph.facebook.com/v17.0/${business.id}/owned_ad_accounts`, {
+          params: {
+            access_token: token,
+            fields: 'id,account_id,name'
+          }
+        });
+
+        adAccounts = adAccounts.concat(adsRes.data.data || []);
+      } catch (err) {
+        console.warn(`Failed to fetch ad accounts for business ${business.id}:`, err.response?.data || err.message);
+      }
+    }
+
     res.json({ success: true, adAccounts });
   } catch (error) {
     console.error('Fetch Ad Accounts Error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch ad accounts' });
   }
 });
+
 
 /**
  * Fetch Campaigns for a given Ad Account
