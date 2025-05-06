@@ -22,13 +22,13 @@ const { createClient } = require('redis');
 const { RedisStore } = require('connect-redis');
 
 app.use(cors({
-  origin: 'https://batchadupload.vercel.app', // Replace with your React app's origin
+  origin: 'https://withblip.com', // Replace with your React app's origin
   credentials: true // This enables sending cookies from the client
 }));
 
 
 app.options("*", cors({
-  origin: 'https://batchadupload.vercel.app',
+  origin: 'https://withblip.com',
   credentials: true
 }));
 
@@ -140,7 +140,7 @@ app.get('/auth/facebook', async (req, res) => {
     "client_id=" + process.env.META_APP_ID +
     "&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback" +
     "&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads" +
-    "&auth_type=rerequest&response_type=code";
+    "&response_type=code";
 
   res.redirect(redirectUri);
 });
@@ -225,7 +225,7 @@ app.get('/auth/callback', async (req, res) => {
       });
 
       // 6. Redirect
-      res.redirect('https://batchadupload.vercel.app/?loggedIn=true');
+      res.redirect('https://withblip.com/?loggedIn=true');
     });
 
   } catch (error) {
