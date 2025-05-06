@@ -117,33 +117,33 @@ let userData = {};
 /**
  * Step 1: Facebook Login - Redirect to Facebook OAuth
  */
-// app.get('/auth/facebook', (req, res) => {
-//   const redirectUri = "https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads&auth_type=rerequest&response_type=code";
-//   res.redirect(redirectUri);
-// });
-
-app.get('/auth/facebook', async (req, res) => {
-  // ✅ Step 1: Revoke old token if it exists
-  if (req.session.accessToken) {
-    try {
-      await axios.delete('https://graph.facebook.com/v21.0/me/permissions', {
-        params: { access_token: req.session.accessToken }
-      });
-      console.log("🔁 Old access token revoked");
-    } catch (err) {
-      console.warn("⚠️ Failed to revoke old token:", err.response?.data || err.message);
-    }
-  }
-
-  // ✅ Step 2: Redirect to Facebook login
-  const redirectUri = "https://www.facebook.com/v21.0/dialog/oauth?" +
-    "client_id=" + process.env.META_APP_ID +
-    "&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback" +
-    "&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads" +
-    "&response_type=code";
-
+app.get('/auth/facebook', (req, res) => {
+  const redirectUri = "https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads&auth_type=rerequest&response_type=code";
   res.redirect(redirectUri);
 });
+
+// app.get('/auth/facebook', async (req, res) => {
+//   // ✅ Step 1: Revoke old token if it exists
+//   if (req.session.accessToken) {
+//     try {
+//       await axios.delete('https://graph.facebook.com/v21.0/me/permissions', {
+//         params: { access_token: req.session.accessToken }
+//       });
+//       console.log("🔁 Old access token revoked");
+//     } catch (err) {
+//       console.warn("⚠️ Failed to revoke old token:", err.response?.data || err.message);
+//     }
+//   }
+
+//   // ✅ Step 2: Redirect to Facebook login
+//   const redirectUri = "https://www.facebook.com/v21.0/dialog/oauth?" +
+//     "client_id=" + process.env.META_APP_ID +
+//     "&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback" +
+//     "&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads" +
+//     "&response_type=code";
+
+//   res.redirect(redirectUri);
+// });
 
 
 
