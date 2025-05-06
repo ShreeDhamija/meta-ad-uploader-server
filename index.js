@@ -22,13 +22,13 @@ const { createClient } = require('redis');
 const { RedisStore } = require('connect-redis');
 
 app.use(cors({
-  origin: 'https://withblip.com', // Replace with your React app's origin
+  origin: 'https://www.withblip.com', // Replace with your React app's origin
   credentials: true // This enables sending cookies from the client
 }));
 
 
 app.options("*", cors({
-  origin: 'https://withblip.com',
+  origin: 'https://www.withblip.com',
   credentials: true
 }));
 
@@ -225,7 +225,7 @@ app.get('/auth/callback', async (req, res) => {
       });
 
       // 6. Redirect
-      res.redirect('https://withblip.com/?loggedIn=true');
+      res.redirect('https://www.withblip.com/?loggedIn=true');
     });
 
   } catch (error) {
