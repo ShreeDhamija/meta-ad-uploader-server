@@ -20,6 +20,7 @@ const {
 } = require("./firebaseController");
 const { createClient } = require('redis');
 const { RedisStore } = require('connect-redis');
+const crypto = require('crypto');
 
 app.use(cors({
   origin: 'https://www.withblip.com', // Replace with your React app's origin
@@ -117,10 +118,6 @@ let userData = {};
 /**
  * Step 1: Facebook Login - Redirect to Facebook OAuth
  */
-// app.get('/auth/facebook', (req, res) => {
-//   const redirectUri = "https://www.facebook.com/v21.0/dialog/oauth?client_id=2343862285947895&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads&auth_type=rerequest&response_type=code";
-//   res.redirect(redirectUri);
-// });
 
 app.get('/auth/facebook', (req, res) => {
   const clientId = process.env.META_APP_ID; // add this to your .env file
@@ -1085,6 +1082,37 @@ app.post("/auth/manual-login", async (req, res) => {
   }
 });
 
+app.post('/meta-data-deletion', express.urlencoded({ extended: true }), (req, res) => {
+  const signedRequest = req.body.signed_request;
+  if (!signedRequest) {
+    return res.status(400).json({ error: 'Missing signed_request' });
+  }
+
+  const [encodedSig, encodedPayload] = signedRequest.split('.');
+  const sig = Buffer.from(encodedSig, 'base64');
+  const payload = Buffer.from(encodedPayload, 'base64').toString();
+  const data = JSON.parse(payload);
+
+  const expectedSig = crypto
+    .createHmac('sha256', process.env.META_APP_SECRET)
+    .update(encodedPayload)
+    .digest();
+
+  if (!crypto.timingSafeEqual(sig, expectedSig)) {
+    return res.status(400).json({ error: 'Invalid signature' });
+  }
+
+  const confirmationCode = crypto.randomUUID();
+
+  // Optionally delete the user's data from Firestore:
+  // await deleteUserData(data.user_id)
+
+  return res.json({
+    url: "https://withblip.com",
+    confirmation_code: confirmationCode
+  });
+});
+
 
 app.get("/settings/global", async (req, res) => {
   const sessionUser = req.session.user;
@@ -1099,20 +1127,7 @@ app.get("/settings/global", async (req, res) => {
   }
 });
 
-// app.get("/settings/ad-account", async (req, res) => {
-//   const sessionUser = req.session.user;
-//   const { adAccountId } = req.query;
-//   if (!sessionUser) return res.status(401).json({ error: "Not authenticated" });
-//   if (!adAccountId) return res.status(400).json({ error: "Missing adAccountId" });
 
-//   try {
-//     const settings = await getAdAccountSettings(sessionUser.facebookId, adAccountId);
-//     res.json({ settings });
-//   } catch (err) {
-//     console.error("Ad account settings fetch error:", err);
-//     res.status(500).json({ error: "Failed to fetch ad account settings" });
-//   }
-// });
 app.get("/settings/ad-account", async (req, res) => {
   const sessionUser = req.session.user;
   const { adAccountId } = req.query;
