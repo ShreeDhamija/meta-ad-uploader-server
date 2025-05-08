@@ -121,7 +121,7 @@ let userData = {};
 
 app.get('/auth/facebook', (req, res) => {
   const clientId = process.env.META_APP_ID; // add this to your .env file
-  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${clientId}&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads&auth_type=rerequest&response_type=code`;
+  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${clientId}&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_management,business_management,pages_show_list,email,instagram_basic,pages_manage_ads&auth_type=rerequest&response_type=code`;
   res.redirect(redirectUri);
 });
 
