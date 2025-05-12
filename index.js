@@ -121,7 +121,7 @@ let userData = {};
 
 app.get('/auth/facebook', (req, res) => {
   const clientId = process.env.META_APP_ID; // add this to your .env file
-  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${clientId}&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_management,business_management,pages_show_list,email,instagram_basic,pages_manage_ads&auth_type=rerequest&response_type=code`;
+  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${clientId}&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads&auth_type=rerequest&response_type=code`;
   res.redirect(redirectUri);
 });
 
@@ -347,10 +347,15 @@ app.get('/auth/fetch-adsets', async (req, res) => {
     const adSetsResponse = await axios.get(adSetsUrl, {
       params: {
         access_token: token,
-        fields: 'id,name,status,is_dynamic_creative,destination_type'
+        fields: 'id,name,status,is_dynamic_creative,effective_status,insights.date_preset(last_7d){spend}'
       }
     });
-    res.json({ adSets: adSetsResponse.data.data });
+    const adSets = adSetsResponse.data.data.map(adset => {
+      const spend = parseFloat(adset.insights?.data?.[0]?.spend || "0");
+      return { ...adset, spend };
+    });
+    res.json({ adSets });
+
   } catch (error) {
     console.error('Fetch Ad Sets Error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch ad sets' });
