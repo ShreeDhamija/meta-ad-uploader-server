@@ -806,7 +806,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     urlTags,
     creativeEnhancements
   });
-  const createAdUrl = `http://127.0.0.1:4000/fake-facebook`;
+  const createAdUrl = `https://short-roses-like.loca.lt/fake-facebook`;
 
 
   const createAdResponse = await retryWithBackoff(() =>
