@@ -94,6 +94,27 @@ function buildCreativeEnhancementsConfig(firestoreSettings = {}) {
   }
 }
 
+async function retryWithBackoff(fn, maxAttempts = 3, initialDelay = 1000) {
+  let attempt = 0;
+  while (attempt < maxAttempts) {
+    try {
+      return await fn();
+    } catch (err) {
+      const fbErr = err.response?.data?.error;
+      const isTransient = fbErr?.is_transient || fbErr?.code === 2;
+
+      if (!isTransient || attempt === maxAttempts - 1) {
+        throw err;
+      }
+
+      const delay = initialDelay * Math.pow(2, attempt); // exponential backoff
+      console.warn(`⚠️ Transient error (attempt ${attempt + 1}), retrying in ${delay}ms`);
+      await new Promise((res) => setTimeout(res, delay));
+      attempt++;
+    }
+  }
+}
+
 
 
 // Multer disk storage
@@ -739,9 +760,12 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
   });
 
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
-  const createAdResponse = await axios.post(createAdUrl, creativePayload, {
-    params: { access_token: token }
-  });
+  const createAdResponse = await retryWithBackoff(() =>
+    axios.post(createAdUrl, creativePayload, {
+      params: { access_token: token }
+    })
+  );
+
 
   await fs.promises.unlink(file.path).catch(err => console.error("Error deleting video file:", err));
   return createAdResponse.data;
@@ -784,9 +808,12 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
   });
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
 
-  const createAdResponse = await axios.post(createAdUrl, creativePayload, {
-    params: { access_token: token }
-  });
+  const createAdResponse = await retryWithBackoff(() =>
+    axios.post(createAdUrl, creativePayload, {
+      params: { access_token: token }
+    })
+  );
+
 
   fs.unlink(file.path, err => {
     if (err) console.error("Error deleting image file:", err);
@@ -1254,7 +1281,12 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
   };
 
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
-  const createAdResponse = await axios.post(createAdUrl, creativePayload, { params: { access_token: token } });
+  const createAdResponse = await retryWithBackoff(() =>
+    axios.post(createAdUrl, creativePayload, {
+      params: { access_token: token }
+    })
+  );
+
   return createAdResponse.data;
 }
 
