@@ -24,8 +24,7 @@ const crypto = require('crypto');
 
 app.use(cors({
   origin: [
-    'https://www.withblip.com',
-    'https://legal-shirts-jam.loca.lt'  // 👈 add this
+    'https://www.withblip.com'
   ],
   credentials: true
 }));
@@ -810,9 +809,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     urlTags,
     creativeEnhancements
   });
-  const createAdUrl = `https://legal-shirts-jam.loca.lt/fake-facebook`;
-
-
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await retryWithBackoff(() =>
     axios.post(createAdUrl, creativePayload, {
       params: { access_token: token }
