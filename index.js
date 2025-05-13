@@ -23,9 +23,13 @@ const { RedisStore } = require('connect-redis');
 const crypto = require('crypto');
 
 app.use(cors({
-  origin: 'https://www.withblip.com', // Replace with your React app's origin
-  credentials: true // This enables sending cookies from the client
+  origin: [
+    'https://www.withblip.com',
+    'https://short-roses-like.loca.lt'  // 👈 add this
+  ],
+  credentials: true
 }));
+
 
 
 app.options("*", cors({
