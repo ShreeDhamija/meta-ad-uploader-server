@@ -810,7 +810,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     urlTags,
     creativeEnhancements
   });
-  const createAdUrl = `https://legal-shirts-jam.loca.lt`;
+  const createAdUrl = `https://legal-shirts-jam.loca.lt/fake-facbebook`;
 
 
   const createAdResponse = await retryWithBackoff(() =>
