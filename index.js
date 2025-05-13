@@ -806,7 +806,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     urlTags,
     creativeEnhancements
   });
-  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+  const createAdUrl = `http://localhost:4000/fake-facebook`;
 
   const createAdResponse = await retryWithBackoff(() =>
     axios.post(createAdUrl, creativePayload, {
