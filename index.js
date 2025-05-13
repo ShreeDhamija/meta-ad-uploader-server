@@ -25,7 +25,7 @@ const crypto = require('crypto');
 app.use(cors({
   origin: [
     'https://www.withblip.com',
-    'https://short-roses-like.loca.lt'  // 👈 add this
+    'https://legal-shirts-jam.loca.lt'  // 👈 add this
   ],
   credentials: true
 }));
@@ -810,7 +810,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     urlTags,
     creativeEnhancements
   });
-  const createAdUrl = `https://short-roses-like.loca.lt/fake-facebook`;
+  const createAdUrl = `https://legal-shirts-jam.loca.lt`;
 
 
   const createAdResponse = await retryWithBackoff(() =>
