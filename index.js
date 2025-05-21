@@ -1041,6 +1041,45 @@ app.get('/auth/generate-ad-preview', async (req, res) => {
   }
 });
 
+app.get("/auth/fetch-recent-copy", async (req, res) => {
+  const token = req.session.accessToken;
+  const { adAccountId } = req.query;
+
+  if (!token) return res.status(401).json({ error: "Not authenticated" });
+  if (!adAccountId) return res.status(400).json({ error: "Missing adAccountId" });
+
+  try {
+    const url = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+    const response = await axios.get(url, {
+      params: {
+        access_token: token,
+        fields: 'name,creative{asset_feed_spec}',
+        limit: 5,
+        sort: 'created_time_desc',
+      },
+    });
+
+    const formattedAds = (response.data.data || [])
+      .map(ad => {
+        const spec = ad.creative?.asset_feed_spec;
+        if (!spec) return null;
+
+        return {
+          adName: ad.name,
+          primaryTexts: spec.bodies?.map(b => b.text) || [],
+          headlines: spec.titles?.map(t => t.text) || [],
+        };
+      })
+      .filter(Boolean);
+
+    res.json({ ads: formattedAds });
+  } catch (err) {
+    console.error("Fetch recent copy error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to fetch recent ad copy" });
+  }
+});
+
+
 
 
 
