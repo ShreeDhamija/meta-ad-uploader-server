@@ -989,42 +989,59 @@ app.post(
       const headlines = parseField(req.body.headlines, req.body.headline);
       const descriptionsArray = parseField(req.body.descriptions, req.body.description);
       const messagesArray = parseField(req.body.messages, req.body.message);
-      const driveIds = [].concat(req.body.driveIds || []);
-      const driveMimeTypes = [].concat(req.body.driveMimeTypes || []);
-      const driveAccessTokens = [].concat(req.body.driveAccessTokens || []);
-      const driveNames = [].concat(req.body.driveNames || []);
+      let driveIds = [];
+      let driveMimeTypes = [];
+      let driveAccessTokens = [];
+      let driveNames = [];
 
-      // Inject a file from Drive into req.files if needed
-      if (driveFile === 'true' && driveIds.length > 0) {
-        for (let i = 0; i < driveIds.length; i++) {
-          const fileRes = await axios({
-            url: `https://www.googleapis.com/drive/v3/files/${driveIds[i]}?alt=media`,
-            method: 'GET',
-            responseType: 'stream',
-            headers: { Authorization: `Bearer ${driveAccessTokens[i]}` },
-          });
+      if (driveFile === 'true') {
+        try {
+          driveIds = JSON.parse(req.body.driveIds || "[]");
+          driveMimeTypes = JSON.parse(req.body.driveMimeTypes || "[]");
+          driveAccessTokens = JSON.parse(req.body.driveAccessTokens || "[]");
+          driveNames = JSON.parse(req.body.driveNames || "[]");
+        } catch (err) {
+          console.error("❌ Failed to parse Drive metadata:", err.message);
+          return res.status(400).json({ error: "Invalid Drive metadata format" });
+        }
 
-          const tempDir = path.resolve(__dirname, 'tmp');
-          if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+        if (driveIds.length > 0) {
+          for (let i = 0; i < driveIds.length; i++) {
+            try {
+              const fileRes = await axios({
+                url: `https://www.googleapis.com/drive/v3/files/${driveIds[i]}?alt=media`,
+                method: 'GET',
+                responseType: 'stream',
+                headers: { Authorization: `Bearer ${driveAccessTokens[i]}` },
+              });
 
-          const ext = driveMimeTypes[i].startsWith('video/') ? '.mp4' : '.jpg';
-          const tempPath = path.join(tempDir, `${uuidv4()}-${driveNames[i]}${ext}`);
-          const writer = fs.createWriteStream(tempPath);
-          fileRes.data.pipe(writer);
-          await new Promise((res) => writer.on('finish', res));
+              const tempDir = path.resolve(__dirname, 'tmp');
+              if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 
-          const fakeFile = {
-            path: tempPath,
-            mimetype: driveMimeTypes[i],
-            originalname: driveNames[i],
-            filename: path.basename(tempPath),
-          };
+              const ext = driveMimeTypes[i].startsWith('video/') ? '.mp4' : '.jpg';
+              const tempPath = path.join(tempDir, `${uuidv4()}-${driveNames[i]}${ext}`);
+              const writer = fs.createWriteStream(tempPath);
+              fileRes.data.pipe(writer);
+              await new Promise((res) => writer.on('finish', res));
 
-          req.files = req.files || {};
-          req.files.mediaFiles = req.files.mediaFiles || [];
-          req.files.mediaFiles.push(fakeFile);
+              const fakeFile = {
+                path: tempPath,
+                mimetype: driveMimeTypes[i],
+                originalname: driveNames[i],
+                filename: path.basename(tempPath),
+              };
+
+              req.files = req.files || {};
+              req.files.mediaFiles = req.files.mediaFiles || [];
+              req.files.mediaFiles.push(fakeFile);
+            } catch (err) {
+              console.error(`❌ Failed to fetch or save Drive file ${driveNames[i]}:`, err.message);
+              return res.status(400).json({ error: `Failed to download Google Drive file: ${driveNames[i]}` });
+            }
+          }
         }
       }
+
 
 
       // Fetch ad set info again for dynamic logic
