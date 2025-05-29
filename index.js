@@ -978,41 +978,42 @@ app.post(
       const messagesArray = parseField(req.body.messages, req.body.message);
 
       // Inject a file from Drive into req.files if needed
-      if (driveFile === 'true' && driveId && driveAccessToken) {
-        const fileRes = await axios({
-          url: `https://www.googleapis.com/drive/v3/files/${driveId}?alt=media`,
-          method: 'GET',
-          responseType: 'stream',
-          headers: { Authorization: `Bearer ${driveAccessToken}` },
-        });
+      if (req.body.driveFile === 'true' && Array.isArray(req.body.driveIds)) {
+        const driveIds = req.body.driveIds;
+        const driveMimeTypes = req.body.driveMimeTypes;
+        const driveAccessTokens = req.body.driveAccessTokens;
+        const driveNames = req.body.driveNames;
 
-        const tempDir = path.resolve(__dirname, 'tmp');
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-        const extension = driveMimeType.startsWith('video/') ? '.mp4' : '.jpg';
-        const tempPath = path.join(tempDir, `${uuidv4()}-${driveName}${extension}`);
-        const writer = fs.createWriteStream(tempPath);
-        fileRes.data.pipe(writer);
-        await new Promise((res) => writer.on('finish', res));
+        for (let i = 0; i < driveIds.length; i++) {
+          const fileRes = await axios({
+            url: `https://www.googleapis.com/drive/v3/files/${driveIds[i]}?alt=media`,
+            method: 'GET',
+            responseType: 'stream',
+            headers: { Authorization: `Bearer ${driveAccessTokens[i]}` },
+          });
 
-        const fakeFile = {
-          path: tempPath,
-          mimetype: driveMimeType,
-          originalname: driveName,
-          filename: path.basename(tempPath),
-        };
+          const tempDir = path.resolve(__dirname, 'tmp');
+          if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 
-        // Add to correct field in req.files
-        req.files = req.files || {};
-        const isDynamic = await axios
-          .get(`https://graph.facebook.com/v21.0/${adSetId}`, {
-            params: { access_token: token, fields: 'is_dynamic_creative' },
-          })
-          .then((r) => r.data.is_dynamic_creative);
+          const ext = driveMimeTypes[i].startsWith('video/') ? '.mp4' : '.jpg';
+          const tempPath = path.join(tempDir, `${uuidv4()}-${driveNames[i]}${ext}`);
+          const writer = fs.createWriteStream(tempPath);
+          fileRes.data.pipe(writer);
+          await new Promise((res) => writer.on('finish', res));
 
-        const fieldName = isDynamic ? 'mediaFiles' : 'imageFile';
-        req.files[fieldName] = req.files[fieldName] || [];
-        req.files[fieldName].push(fakeFile);
+          const fakeFile = {
+            path: tempPath,
+            mimetype: driveMimeTypes[i],
+            originalname: driveNames[i],
+            filename: path.basename(tempPath),
+          };
+
+          req.files = req.files || {};
+          req.files.mediaFiles = req.files.mediaFiles || [];
+          req.files.mediaFiles.push(fakeFile);
+        }
       }
+
 
       // Fetch ad set info again for dynamic logic
       const adSetInfoResponse = await axios.get(
