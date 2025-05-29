@@ -944,6 +944,8 @@ app.post(
     { name: 'imageFile', maxCount: 1 },
     { name: 'thumbnail', maxCount: 1 },
   ]),
+
+
   async (req, res) => {
     const token = req.session.accessToken;
     if (!token) return res.status(401).json({ error: 'User not authenticated' });
@@ -958,11 +960,22 @@ app.post(
         adAccountId,
         instagramAccountId,
         driveFile,
-        driveId,
-        driveAccessToken,
-        driveMimeType,
-        driveName,
       } = req.body;
+
+      console.log("🔥 Incoming create-ad request");
+      console.log("🔥 driveFile:", req.body.driveFile);
+      console.log("🔥 driveIds:", req.body.driveIds);
+      console.log("🔥 req.files:", req.files);
+      console.log("🔥 mediaFiles:", req.files?.mediaFiles?.length);
+      console.log("🔥 imageFile:", req.files?.imageFile?.length);
+      console.log("🔥 adName:", req.body.adName);
+      console.log("🔥 adSetId:", req.body.adSetId);
+      console.log("🚨 driveIds type:", typeof req.body.driveIds);
+      console.log("🚨 driveIds raw:", req.body.driveIds);
+
+      if (!req.body.adName || !req.body.adSetId || !req.files) {
+        return res.status(400).json({ error: 'Missing required fields (adName, adSetId, or files)' });
+      }
 
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
 
@@ -976,14 +989,13 @@ app.post(
       const headlines = parseField(req.body.headlines, req.body.headline);
       const descriptionsArray = parseField(req.body.descriptions, req.body.description);
       const messagesArray = parseField(req.body.messages, req.body.message);
+      const driveIds = [].concat(req.body.driveIds || []);
+      const driveMimeTypes = [].concat(req.body.driveMimeTypes || []);
+      const driveAccessTokens = [].concat(req.body.driveAccessTokens || []);
+      const driveNames = [].concat(req.body.driveNames || []);
 
       // Inject a file from Drive into req.files if needed
-      if (req.body.driveFile === 'true' && Array.isArray(req.body.driveIds)) {
-        const driveIds = req.body.driveIds;
-        const driveMimeTypes = req.body.driveMimeTypes;
-        const driveAccessTokens = req.body.driveAccessTokens;
-        const driveNames = req.body.driveNames;
-
+      if (driveFile === 'true' && driveIds.length > 0) {
         for (let i = 0; i < driveIds.length; i++) {
           const fileRes = await axios({
             url: `https://www.googleapis.com/drive/v3/files/${driveIds[i]}?alt=media`,
