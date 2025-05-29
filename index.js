@@ -791,147 +791,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
 }
 
 
-// app.post(
-//   '/auth/create-ad',
-//   upload.fields([
-//     { name: 'mediaFiles', maxCount: 10 },
-//     { name: 'thumbnails', maxCount: 1 },
-//     { name: 'imageFile', maxCount: 1 },
-//     { name: 'thumbnail', maxCount: 1 },
-//   ]),
-//   async (req, res) => {
-//     const token = req.session.accessToken;
-//     if (!token) return res.status(401).json({ error: 'User not authenticated' });
 
-//     try {
-//       const {
-//         adName,
-//         adSetId,
-//         pageId,
-//         link,
-//         cta,
-//         adAccountId,
-//         instagramAccountId,
-//         driveFile,
-//         driveId,
-//         driveAccessToken,
-//         driveMimeType,
-//         driveName,
-//       } = req.body;
-
-//       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
-
-//       const parseField = (field, fallback) => {
-//         try {
-//           return JSON.parse(field);
-//         } catch (e) {
-//           return fallback ? [fallback] : [];
-//         }
-//       };
-//       const headlines = parseField(req.body.headlines, req.body.headline);
-//       const descriptionsArray = parseField(req.body.descriptions, req.body.description);
-//       const messagesArray = parseField(req.body.messages, req.body.message);
-
-//       // Inject a file from Drive into req.files if needed
-//       if (driveFile === 'true' && driveId && driveAccessToken) {
-//         const fileRes = await axios({
-//           url: `https://www.googleapis.com/drive/v3/files/${driveId}?alt=media`,
-//           method: 'GET',
-//           responseType: 'stream',
-//           headers: { Authorization: `Bearer ${driveAccessToken}` },
-//         });
-
-//         const tempDir = path.resolve(__dirname, 'tmp');
-//         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-//         const extension = driveMimeType.startsWith('video/') ? '.mp4' : '.jpg';
-//         const tempPath = path.join(tempDir, `${uuidv4()}-${driveName}${extension}`);
-//         const writer = fs.createWriteStream(tempPath);
-//         fileRes.data.pipe(writer);
-//         await new Promise((res) => writer.on('finish', res));
-
-//         const fakeFile = {
-//           path: tempPath,
-//           mimetype: driveMimeType,
-//           originalname: driveName,
-//           filename: path.basename(tempPath),
-//         };
-
-//         // Add to correct field in req.files
-//         req.files = req.files || {};
-//         const isDynamic = await axios
-//           .get(`https://graph.facebook.com/v21.0/${adSetId}`, {
-//             params: { access_token: token, fields: 'is_dynamic_creative' },
-//           })
-//           .then((r) => r.data.is_dynamic_creative);
-
-//         const fieldName = isDynamic ? 'mediaFiles' : 'imageFile';
-//         req.files[fieldName] = req.files[fieldName] || [];
-//         req.files[fieldName].push(fakeFile);
-//       }
-
-//       // Fetch ad set info again for dynamic logic
-//       const adSetInfoResponse = await axios.get(
-//         `https://graph.facebook.com/v21.0/${adSetId}`,
-//         {
-//           params: { access_token: token, fields: 'is_dynamic_creative' },
-//         }
-//       );
-//       const adSetDynamicCreative = adSetInfoResponse.data.is_dynamic_creative;
-//       const useDynamicCreative = adSetDynamicCreative;
-
-//       const adAccountSettings = await getAdAccountSettings(req.session.user.facebookId, adAccountId);
-//       const creativeEnhancements = adAccountSettings?.creativeEnhancements || {};
-//       const utmPairs = adAccountSettings?.defaultUTMs || [];
-//       const urlTags = buildUrlTagsFromPairs(utmPairs);
-
-//       let result;
-
-//       if (useDynamicCreative) {
-//         const mediaFiles = req.files.mediaFiles;
-//         if (!mediaFiles || mediaFiles.length === 0) {
-//           return res.status(400).json({ error: 'No media files received for dynamic creative' });
-//         }
-//         if (mediaFiles[0].mimetype.startsWith('video/')) {
-//           result = await handleDynamicVideoAd(
-//             req, token, adAccountId, adSetId, pageId, adName, cta, link,
-//             headlines, messagesArray, descriptionsArray,
-//             instagramAccountId, urlTags, creativeEnhancements
-//           );
-//         } else {
-//           result = await handleDynamicImageAd(
-//             req, token, adAccountId, adSetId, pageId, adName, cta, link,
-//             headlines, messagesArray, descriptionsArray,
-//             instagramAccountId, urlTags, creativeEnhancements
-//           );
-//         }
-//       } else {
-//         const file = req.files.imageFile && req.files.imageFile[0];
-//         if (!file) return res.status(400).json({ error: 'No image file received' });
-
-//         if (file.mimetype.startsWith('video/')) {
-//           result = await handleVideoAd(
-//             req, token, adAccountId, adSetId, pageId, adName, cta, link,
-//             headlines, messagesArray, descriptionsArray,
-//             false, instagramAccountId, urlTags, creativeEnhancements
-//           );
-//         } else {
-//           result = await handleImageAd(
-//             req, token, adAccountId, adSetId, pageId, adName, cta, link,
-//             headlines, messagesArray, descriptionsArray,
-//             false, instagramAccountId, urlTags, creativeEnhancements
-//           );
-//         }
-//       }
-
-//       return res.json(result);
-//     } catch (error) {
-//       console.error('Create Ad Error:', error.response?.data || error.message);
-//       cleanupUploadedFiles(req.files);
-//       const fbErrorMsg = error.response?.data?.error?.error_user_msg || error.message || 'Failed to create ad';
-//       return res.status(400).send(fbErrorMsg);
-//     }
-//   }
-// );
 app.post(
   '/auth/create-ad',
   upload.fields([
@@ -957,7 +817,7 @@ app.post(
       const descriptionsArray = parseField(req.body.descriptions, req.body.description);
       const messagesArray = parseField(req.body.messages, req.body.message);
 
-      // Parse drive files if they exist
+      // Parse drive files if they exist (for dynamic ad sets)
       const driveFiles = [];
       if (req.body.driveFiles) {
         // Handle multiple drive files for dynamic creative
@@ -992,17 +852,14 @@ app.post(
       const utmPairs = adAccountSettings?.defaultUTMs || [];
       const urlTags = buildUrlTagsFromPairs(utmPairs);
 
-      // Process any drive files and add them to req.files
-      if (driveFiles.length > 0) {
+      // Handle Google Drive files for DYNAMIC ad sets only
+      if (useDynamicCreative && driveFiles.length > 0) {
         req.files = req.files || {};
-
-        // Determine where to add the files based on dynamic creative
-        const fieldName = useDynamicCreative ? 'mediaFiles' : 'imageFile';
-        req.files[fieldName] = req.files[fieldName] || [];
+        req.files.mediaFiles = req.files.mediaFiles || [];
 
         for (const driveFile of driveFiles) {
           try {
-            console.log(`Processing drive file: ${driveFile.name}`);
+            console.log(`Processing drive file for dynamic ad set: ${driveFile.name}`);
 
             const fileRes = await axios({
               url: `https://www.googleapis.com/drive/v3/files/${driveFile.id}?alt=media`,
@@ -1028,11 +885,50 @@ app.post(
               filename: path.basename(tempPath),
             };
 
-            req.files[fieldName].push(fakeFile);
-            console.log(`Added drive file to ${fieldName}: ${driveFile.name}`);
+            req.files.mediaFiles.push(fakeFile);
+            console.log(`Added drive file to mediaFiles for dynamic ad set: ${driveFile.name}`);
           } catch (error) {
             console.error(`Error processing drive file ${driveFile.name}:`, error);
           }
+        }
+      }
+
+      // Handle single Google Drive file for REGULAR ad sets (preserve original logic)
+      if (!useDynamicCreative && req.body.driveFile === 'true' && req.body.driveId && req.body.driveAccessToken) {
+        try {
+          console.log(`Processing single drive file for regular ad set: ${req.body.driveName}`);
+
+          const fileRes = await axios({
+            url: `https://www.googleapis.com/drive/v3/files/${req.body.driveId}?alt=media`,
+            method: 'GET',
+            responseType: 'stream',
+            headers: { Authorization: `Bearer ${req.body.driveAccessToken}` },
+          });
+
+          const tempDir = path.resolve(__dirname, 'tmp');
+          if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+          const extension = req.body.driveMimeType.startsWith('video/') ? '.mp4' : '.jpg';
+          const tempPath = path.join(tempDir, `${uuidv4()}-${req.body.driveName}${extension}`);
+
+          const writer = fs.createWriteStream(tempPath);
+          fileRes.data.pipe(writer);
+          await new Promise((resolve) => writer.on('finish', resolve));
+
+          const fakeFile = {
+            path: tempPath,
+            mimetype: req.body.driveMimeType,
+            originalname: req.body.driveName,
+            filename: path.basename(tempPath),
+          };
+
+          // Add to imageFile for regular ad sets
+          req.files = req.files || {};
+          req.files.imageFile = [fakeFile];
+          console.log(`Added drive file to imageFile for regular ad set: ${req.body.driveName}`);
+        } catch (error) {
+          console.error(`Error processing drive file for regular ad set:`, error);
+          return res.status(400).json({ error: 'Failed to process Google Drive file' });
         }
       }
 
