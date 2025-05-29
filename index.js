@@ -289,42 +289,6 @@ app.get('/auth/fetch-ad-accounts', async (req, res) => {
   }
 });
 
-// app.get('/auth/fetch-ad-accounts', async (req, res) => {
-//   const token = req.session.accessToken;
-//   if (!token) return res.status(401).json({ error: 'User not authenticated' });
-
-//   try {
-//     // Step 1: Get businesses
-//     const businessesRes = await axios.get('https://graph.facebook.com/v17.0/me/businesses', {
-//       params: { access_token: token }
-//     });
-
-//     const businesses = businessesRes.data.data;
-//     let adAccounts = [];
-
-//     // Step 2: For each business, fetch owned ad accounts
-//     for (const business of businesses) {
-//       try {
-//         const adsRes = await axios.get(`https://graph.facebook.com/v17.0/${business.id}/owned_ad_accounts`, {
-//           params: {
-//             access_token: token,
-//             fields: 'id,account_id,name'
-//           }
-//         });
-
-//         adAccounts = adAccounts.concat(adsRes.data.data || []);
-//       } catch (err) {
-//         console.warn(`Failed to fetch ad accounts for business ${business.id}:`, err.response?.data || err.message);
-//       }
-//     }
-
-//     res.json({ success: true, adAccounts });
-//   } catch (error) {
-//     console.error('Fetch Ad Accounts Error:', error.response?.data || error.message);
-//     res.status(500).json({ error: 'Failed to fetch ad accounts' });
-//   }
-// });
-
 
 /**
  * Fetch Campaigns for a given Ad Account
@@ -828,148 +792,291 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
 /**
  * (NEW) Create an Ad in a given Ad Set
  */
+// app.post(
+//   '/auth/create-ad',
+//   upload.fields([
+//     { name: 'mediaFiles', maxCount: 10 },      // For dynamic creative (multiple files)
+//     { name: 'thumbnails', maxCount: 1 },        // For dynamic creative video thumbnails
+//     { name: 'imageFile', maxCount: 1 },          // For non-dynamic creative (single file)
+//     { name: 'thumbnail', maxCount: 1 }           // For non-dynamic creative video thumbnail
+//   ]),
+//   async (req, res) => {
+//     const token = req.session.accessToken;
+//     if (!token) return res.status(401).json({ error: 'User not authenticated' });
+
+//     try {
+//       // Extract basic fields and parse creative text fields.
+//       const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId } = req.body;
+
+//       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
+
+//       const parseField = (field, fallback) => {
+//         try { return JSON.parse(field); } catch (e) { return fallback ? [fallback] : []; }
+//       };
+//       const headlines = parseField(req.body.headlines, req.body.headline);
+//       const descriptionsArray = parseField(req.body.descriptions, req.body.description);
+//       const messagesArray = parseField(req.body.messages, req.body.message);
+
+//       // Fetch the ad set info to determine dynamic creative.
+//       const adSetInfoUrl = `https://graph.facebook.com/v21.0/${adSetId}`;
+//       const adSetInfoResponse = await axios.get(adSetInfoUrl, {
+//         params: { access_token: token, fields: 'is_dynamic_creative' }
+//       });
+//       const adSetDynamicCreative = adSetInfoResponse.data.is_dynamic_creative;
+//       // const useDynamicCreative =
+//       //   headlines.length > 1 ||
+//       //   descriptionsArray.length > 1 ||
+//       //   messagesArray.length > 1 ||
+//       //   adSetDynamicCreative;
+
+//       const useDynamicCreative = adSetDynamicCreative;
+
+//       const adAccountSettings = await getAdAccountSettings(req.session.user.facebookId, adAccountId);
+
+//       const creativeEnhancements = adAccountSettings?.creativeEnhancements || {};
+//       const utmPairs = adAccountSettings?.defaultUTMs || [];
+//       const urlTags = buildUrlTagsFromPairs(utmPairs);
+
+
+
+//       let result;
+//       // For dynamic ad creative, use the aggregated media fields.
+//       if (useDynamicCreative) {
+//         // Expect the aggregated files to be in req.files.mediaFiles
+//         const mediaFiles = req.files.mediaFiles;
+//         if (!mediaFiles || mediaFiles.length === 0) {
+//           return res.status(400).json({ error: 'No media files received for dynamic creative' });
+//         }
+//         // Decide if these are videos or images (assumes all files are of the same type)
+//         if (mediaFiles[0].mimetype.startsWith('video/')) {
+//           result = await handleDynamicVideoAd(
+//             req,
+//             token,
+//             adAccountId,
+//             adSetId,
+//             pageId,
+//             adName,
+//             cta,
+//             link,
+//             headlines,
+//             messagesArray,
+//             descriptionsArray,
+//             instagramAccountId,
+//             urlTags,
+//             creativeEnhancements
+//           );
+//         } else {
+//           result = await handleDynamicImageAd(
+//             req,
+//             token,
+//             adAccountId,
+//             adSetId,
+//             pageId,
+//             adName,
+//             cta,
+//             link,
+//             headlines,
+//             messagesArray,
+//             descriptionsArray,
+//             instagramAccountId,
+//             urlTags,
+//             creativeEnhancements
+//           );
+//         }
+//       } else {
+//         // Non-dynamic creative: use the original single file fields.
+//         const file = req.files.imageFile && req.files.imageFile[0];
+//         if (!file) return res.status(400).json({ error: 'No image file received' });
+//         if (file.mimetype.startsWith('video/')) {
+//           result = await handleVideoAd(
+//             req,
+//             token,
+//             adAccountId,
+//             adSetId,
+//             pageId,
+//             adName,
+//             cta,
+//             link,
+//             headlines,
+//             messagesArray,
+//             descriptionsArray,
+//             useDynamicCreative,
+//             instagramAccountId,
+//             urlTags,
+//             creativeEnhancements
+//           );
+//         } else {
+//           result = await handleImageAd(
+//             req,
+//             token,
+//             adAccountId,
+//             adSetId,
+//             pageId,
+//             adName,
+//             cta,
+//             link,
+//             headlines,
+//             messagesArray,
+//             descriptionsArray,
+//             useDynamicCreative,
+//             instagramAccountId,
+//             urlTags,
+//             creativeEnhancements
+//           );
+//         }
+//       }
+//       return res.json(result);
+//     } catch (error) {
+//       console.error('Create Ad Error:', error.response?.data || error.message);
+//       cleanupUploadedFiles(req.files); // 🧼 cleanup
+//       const fbErrorMsg = error.response?.data?.error?.error_user_msg || error.message || 'Failed to create ad';
+//       return res.status(400).send(fbErrorMsg);
+//     }
+//   }
+// );
+
 app.post(
   '/auth/create-ad',
   upload.fields([
-    { name: 'mediaFiles', maxCount: 10 },      // For dynamic creative (multiple files)
-    { name: 'thumbnails', maxCount: 1 },        // For dynamic creative video thumbnails
-    { name: 'imageFile', maxCount: 1 },          // For non-dynamic creative (single file)
-    { name: 'thumbnail', maxCount: 1 }           // For non-dynamic creative video thumbnail
+    { name: 'mediaFiles', maxCount: 10 },
+    { name: 'thumbnails', maxCount: 1 },
+    { name: 'imageFile', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 },
   ]),
   async (req, res) => {
     const token = req.session.accessToken;
     if (!token) return res.status(401).json({ error: 'User not authenticated' });
 
     try {
-      // Extract basic fields and parse creative text fields.
-      const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId } = req.body;
+      const {
+        adName,
+        adSetId,
+        pageId,
+        link,
+        cta,
+        adAccountId,
+        instagramAccountId,
+        driveFile,
+        driveId,
+        driveAccessToken,
+        driveMimeType,
+        driveName,
+      } = req.body;
 
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
 
       const parseField = (field, fallback) => {
-        try { return JSON.parse(field); } catch (e) { return fallback ? [fallback] : []; }
+        try {
+          return JSON.parse(field);
+        } catch (e) {
+          return fallback ? [fallback] : [];
+        }
       };
       const headlines = parseField(req.body.headlines, req.body.headline);
       const descriptionsArray = parseField(req.body.descriptions, req.body.description);
       const messagesArray = parseField(req.body.messages, req.body.message);
 
-      // Fetch the ad set info to determine dynamic creative.
-      const adSetInfoUrl = `https://graph.facebook.com/v21.0/${adSetId}`;
-      const adSetInfoResponse = await axios.get(adSetInfoUrl, {
-        params: { access_token: token, fields: 'is_dynamic_creative' }
-      });
-      const adSetDynamicCreative = adSetInfoResponse.data.is_dynamic_creative;
-      // const useDynamicCreative =
-      //   headlines.length > 1 ||
-      //   descriptionsArray.length > 1 ||
-      //   messagesArray.length > 1 ||
-      //   adSetDynamicCreative;
+      // Inject a file from Drive into req.files if needed
+      if (driveFile === 'true' && driveId && driveAccessToken) {
+        const fileRes = await axios({
+          url: `https://www.googleapis.com/drive/v3/files/${driveId}?alt=media`,
+          method: 'GET',
+          responseType: 'stream',
+          headers: { Authorization: `Bearer ${driveAccessToken}` },
+        });
 
+        const tempDir = path.resolve(__dirname, 'tmp');
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+        const extension = driveMimeType.startsWith('video/') ? '.mp4' : '.jpg';
+        const tempPath = path.join(tempDir, `${uuidv4()}-${driveName}${extension}`);
+        const writer = fs.createWriteStream(tempPath);
+        fileRes.data.pipe(writer);
+        await new Promise((res) => writer.on('finish', res));
+
+        const fakeFile = {
+          path: tempPath,
+          mimetype: driveMimeType,
+          originalname: driveName,
+          filename: path.basename(tempPath),
+        };
+
+        // Add to correct field in req.files
+        req.files = req.files || {};
+        const isDynamic = await axios
+          .get(`https://graph.facebook.com/v21.0/${adSetId}`, {
+            params: { access_token: token, fields: 'is_dynamic_creative' },
+          })
+          .then((r) => r.data.is_dynamic_creative);
+
+        const fieldName = isDynamic ? 'mediaFiles' : 'imageFile';
+        req.files[fieldName] = req.files[fieldName] || [];
+        req.files[fieldName].push(fakeFile);
+      }
+
+      // Fetch ad set info again for dynamic logic
+      const adSetInfoResponse = await axios.get(
+        `https://graph.facebook.com/v21.0/${adSetId}`,
+        {
+          params: { access_token: token, fields: 'is_dynamic_creative' },
+        }
+      );
+      const adSetDynamicCreative = adSetInfoResponse.data.is_dynamic_creative;
       const useDynamicCreative = adSetDynamicCreative;
 
       const adAccountSettings = await getAdAccountSettings(req.session.user.facebookId, adAccountId);
-
       const creativeEnhancements = adAccountSettings?.creativeEnhancements || {};
       const utmPairs = adAccountSettings?.defaultUTMs || [];
       const urlTags = buildUrlTagsFromPairs(utmPairs);
 
-
-
       let result;
-      // For dynamic ad creative, use the aggregated media fields.
+
       if (useDynamicCreative) {
-        // Expect the aggregated files to be in req.files.mediaFiles
         const mediaFiles = req.files.mediaFiles;
         if (!mediaFiles || mediaFiles.length === 0) {
           return res.status(400).json({ error: 'No media files received for dynamic creative' });
         }
-        // Decide if these are videos or images (assumes all files are of the same type)
         if (mediaFiles[0].mimetype.startsWith('video/')) {
           result = await handleDynamicVideoAd(
-            req,
-            token,
-            adAccountId,
-            adSetId,
-            pageId,
-            adName,
-            cta,
-            link,
-            headlines,
-            messagesArray,
-            descriptionsArray,
-            instagramAccountId,
-            urlTags,
-            creativeEnhancements
+            req, token, adAccountId, adSetId, pageId, adName, cta, link,
+            headlines, messagesArray, descriptionsArray,
+            instagramAccountId, urlTags, creativeEnhancements
           );
         } else {
           result = await handleDynamicImageAd(
-            req,
-            token,
-            adAccountId,
-            adSetId,
-            pageId,
-            adName,
-            cta,
-            link,
-            headlines,
-            messagesArray,
-            descriptionsArray,
-            instagramAccountId,
-            urlTags,
-            creativeEnhancements
+            req, token, adAccountId, adSetId, pageId, adName, cta, link,
+            headlines, messagesArray, descriptionsArray,
+            instagramAccountId, urlTags, creativeEnhancements
           );
         }
       } else {
-        // Non-dynamic creative: use the original single file fields.
         const file = req.files.imageFile && req.files.imageFile[0];
         if (!file) return res.status(400).json({ error: 'No image file received' });
+
         if (file.mimetype.startsWith('video/')) {
           result = await handleVideoAd(
-            req,
-            token,
-            adAccountId,
-            adSetId,
-            pageId,
-            adName,
-            cta,
-            link,
-            headlines,
-            messagesArray,
-            descriptionsArray,
-            useDynamicCreative,
-            instagramAccountId,
-            urlTags,
-            creativeEnhancements
+            req, token, adAccountId, adSetId, pageId, adName, cta, link,
+            headlines, messagesArray, descriptionsArray,
+            false, instagramAccountId, urlTags, creativeEnhancements
           );
         } else {
           result = await handleImageAd(
-            req,
-            token,
-            adAccountId,
-            adSetId,
-            pageId,
-            adName,
-            cta,
-            link,
-            headlines,
-            messagesArray,
-            descriptionsArray,
-            useDynamicCreative,
-            instagramAccountId,
-            urlTags,
-            creativeEnhancements
+            req, token, adAccountId, adSetId, pageId, adName, cta, link,
+            headlines, messagesArray, descriptionsArray,
+            false, instagramAccountId, urlTags, creativeEnhancements
           );
         }
       }
+
       return res.json(result);
     } catch (error) {
       console.error('Create Ad Error:', error.response?.data || error.message);
-      cleanupUploadedFiles(req.files); // 🧼 cleanup
+      cleanupUploadedFiles(req.files);
       const fbErrorMsg = error.response?.data?.error?.error_user_msg || error.message || 'Failed to create ad';
       return res.status(400).send(fbErrorMsg);
     }
   }
 );
+
 
 app.get('/auth/generate-ad-preview', async (req, res) => {
   const token = req.session.accessToken;
