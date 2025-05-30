@@ -22,6 +22,7 @@ const {
 const { createClient } = require('redis');
 const { RedisStore } = require('connect-redis');
 const crypto = require('crypto');
+const { google } = require('googleapis');
 
 app.use(cors({
   origin: [
@@ -118,6 +119,14 @@ async function retryWithBackoff(fn, maxAttempts = 3, initialDelay = 1000) {
     }
   }
 }
+
+//google auth initialization
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  'https://meta-ad-uploader-server-production.up.railway.app/auth/google/callback' // Your redirect URI
+);
+const SCOPES = ['https://www.googleapis.com/auth/drive.readonly'];
 
 
 
@@ -1308,6 +1317,108 @@ app.get("/settings/ad-account", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch ad account settings" });
   }
 });
+
+
+
+// 1️⃣ Redirect to Google's OAuth 2.0 server
+app.get('/auth/google', (req, res) => {
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: 'offline', // to get refresh token
+    prompt: 'consent',       // to always get refresh token
+    scope: SCOPES,
+  });
+  res.redirect(authUrl);
+});
+
+// 2️⃣ OAuth 2.0 server callback
+app.get('/auth/google/callback', async (req, res) => {
+  const { code } = req.query;
+
+  try {
+    const { tokens } = await oauth2Client.getToken(code);
+    req.session.googleTokens = tokens;
+
+    // Save session properly
+    await new Promise((resolve, reject) => {
+      req.session.save(err => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    // Redirect back to your app
+    res.redirect('https://www.withblip.com/?googleAuth=success');
+  } catch (error) {
+    console.error('Google OAuth error:', error);
+    res.redirect('https://www.withblip.com/?googleAuth=error');
+  }
+});
+
+// 3️⃣ Helper to ensure valid token
+async function ensureValidGoogleToken(req) {
+  if (!req.session.googleTokens) {
+    throw new Error('No Google tokens found');
+  }
+
+  oauth2Client.setCredentials(req.session.googleTokens);
+
+  try {
+    const { token } = await oauth2Client.getAccessToken();
+    return token;
+  } catch (error) {
+    throw new Error('Token refresh failed: ' + error.message);
+  }
+}
+
+// 4️⃣ Endpoint to check if user is authenticated and get token
+app.get('/auth/google/status', async (req, res) => {
+  try {
+    const accessToken = await ensureValidGoogleToken(req);
+    return res.json({
+      authenticated: true,
+      accessToken: accessToken
+    });
+  } catch (error) {
+    console.error('Auth status check failed:', error.message);
+    return res.json({ authenticated: false });
+  }
+});
+
+// 5️⃣ Example: List Google Drive files
+app.get('/auth/google/list-files', async (req, res) => {
+  try {
+    const accessToken = await ensureValidGoogleToken(req);
+
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+
+    const response = await drive.files.list({
+      pageSize: 30,
+      fields: 'files(id, name, mimeType, thumbnailLink)',
+      orderBy: 'modifiedTime desc',
+    });
+
+    return res.json({ files: response.data.files });
+  } catch (error) {
+    console.error('Google Drive list files error:', error.message);
+    return res.status(500).json({ error: 'Failed to list files' });
+  }
+});
+
+// 6️⃣ Logout: clear session
+app.get('/auth/google/logout', (req, res) => {
+  if (req.session.googleTokens) {
+    delete req.session.googleTokens;
+    req.session.save(err => {
+      if (err) {
+        console.error('Error saving session after Google logout:', err);
+      }
+      res.json({ success: true });
+    });
+  } else {
+    res.json({ success: true });
+  }
+});
+
 
 
 //to fetch ad previews
