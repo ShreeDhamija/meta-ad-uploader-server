@@ -487,6 +487,94 @@ app.get('/auth/fetch-pages', async (req, res) => {
 });
 
 
+// app.get('/auth/fetch-shop-data', async (req, res) => {
+//   const token = req.session.accessToken;
+//   const { pageId } = req.query;
+//   console.log("selected page", pageId);
+
+//   if (!token) return res.status(401).json({ error: 'Not authenticated' });
+//   if (!pageId) return res.status(400).json({ error: 'Missing pageId' });
+
+//   try {
+//     // Step 1: Fetch user's pages to get page access token
+//     const pagesResponse = await axios.get('https://graph.facebook.com/v21.0/me/accounts', {
+//       params: {
+//         access_token: token,
+//         fields: 'id,name,access_token'
+//       }
+//     });
+
+//     const pages = pagesResponse.data.data;
+//     const page = pages.find(p => p.id === pageId);
+//     if (!page) return res.status(404).json({ error: 'Page not found in user accounts' });
+
+//     const pageAccessToken = page.access_token;
+
+//     // Step 2: Fetch shops info
+//     const shopsUrl = `https://graph.facebook.com/v21.0/${pageId}/commerce_merchant_settings`;
+//     const shopsResponse = await axios.get(shopsUrl, {
+//       params: {
+//         fields: 'id,shops{id,fb_sales_channel{status,fb_page{id,name}},is_onsite_enabled,shop_status}',
+//         access_token: pageAccessToken
+//       }
+//     });
+//     // Add this after the shopsResponse:
+//     if (!shopsResponse.data.shops) {
+//       console.log("no shops response");
+//       return res.json({
+//         shops: [],
+//         product_sets: [],
+//         products: []
+//       });
+//     }
+
+//     const shopsData = shopsResponse.data.shops?.data || [];
+//     console.log("Shops Data", shopsData);
+
+//     const shops = shopsData.map(shop => ({
+//       storefront_shop_id: shop.id,
+//       fb_page_id: shop.fb_sales_channel?.fb_page?.id || null,
+//       fb_page_name: shop.fb_sales_channel?.fb_page?.name || `Shop ${shop.id}`,
+//       is_onsite_enabled: shop.is_onsite_enabled || false,
+//       shop_status: shop.shop_status || 'UNKNOWN',
+//       fb_sales_channel_status: shop.fb_sales_channel?.status || 'UNKNOWN'
+//     }));
+
+//     // Step 3: Fetch product sets and products
+//     const productsResponse = await axios.get(shopsUrl, {
+//       params: {
+//         fields: 'id,product_catalogs{id,product_sets{id,name},products{id,name}}',
+//         access_token: pageAccessToken
+//       }
+//     });
+
+//     const productCatalogs = productsResponse.data.product_catalogs?.data || [];
+//     console.log("productCatalogs", productCatalogs);
+//     const productSets = [];
+//     const products = [];
+
+//     for (const catalog of productCatalogs) {
+//       const sets = catalog.product_sets?.data || [];
+//       const prods = catalog.products?.data || [];
+
+//       productSets.push(...sets.map(set => ({ id: set.id, name: set.name })));
+//       products.push(...prods.map(prod => ({ id: prod.id, name: prod.name })));
+//     }
+//     console.log("Shops", shops);
+//     console.log("product sets", productSets);
+//     console.log("products", products);
+//     return res.json({
+//       shops,
+//       product_sets: productSets,
+//       products
+//     });
+
+//   } catch (error) {
+//     console.error('Fetch shop data error:', error.response?.data || error.message);
+//     return res.status(500).json({ error: 'Failed to fetch shop data' });
+//   }
+// });
+
 app.get('/auth/fetch-shop-data', async (req, res) => {
   const token = req.session.accessToken;
   const { pageId } = req.query;
@@ -518,9 +606,11 @@ app.get('/auth/fetch-shop-data', async (req, res) => {
         access_token: pageAccessToken
       }
     });
-    // Add this after the shopsResponse:
-    if (!shopsResponse.data.shops) {
-      console.log("no shops respone");
+
+    // Parse the merchant settings array
+    const merchantSettings = shopsResponse.data.data || [];
+    if (merchantSettings.length === 0) {
+      console.log("No merchant settings found");
       return res.json({
         shops: [],
         product_sets: [],
@@ -528,7 +618,8 @@ app.get('/auth/fetch-shop-data', async (req, res) => {
       });
     }
 
-    const shopsData = shopsResponse.data.shops?.data || [];
+    // Get shops from the first merchant setting
+    const shopsData = merchantSettings[0]?.shops?.data || [];
     console.log("Shops Data", shopsData);
 
     const shops = shopsData.map(shop => ({
@@ -548,8 +639,11 @@ app.get('/auth/fetch-shop-data', async (req, res) => {
       }
     });
 
-    const productCatalogs = productsResponse.data.product_catalogs?.data || [];
+    // Parse product catalogs the same way
+    const merchantSettingsForProducts = productsResponse.data.data || [];
+    const productCatalogs = merchantSettingsForProducts[0]?.product_catalogs?.data || [];
     console.log("productCatalogs", productCatalogs);
+
     const productSets = [];
     const products = [];
 
@@ -560,9 +654,11 @@ app.get('/auth/fetch-shop-data', async (req, res) => {
       productSets.push(...sets.map(set => ({ id: set.id, name: set.name })));
       products.push(...prods.map(prod => ({ id: prod.id, name: prod.name })));
     }
+
     console.log("Shops", shops);
     console.log("product sets", productSets);
     console.log("products", products);
+
     return res.json({
       shops,
       product_sets: productSets,
