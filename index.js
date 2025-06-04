@@ -812,6 +812,8 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
 // Helper: Build image creative payload
 function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType }) {
 
+  let shopDestinationFieldsForAssetFeed = {};
+
   if (shopDestination && shopDestinationType) {
     const onsiteDestinationObject = {};
     if (shopDestinationType === "shop") {
