@@ -725,7 +725,22 @@ function cleanupUploadedFiles(files) {
 }
 
 // Helper: Build video creative payload
-function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, thumbnailUrl, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements }) {
+function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, thumbnailUrl, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType }) {
+
+  let shopDestinationFieldsForAssetFeed = {};
+
+  if (shopDestination && shopDestinationType) {
+    const onsiteDestinationObject = {};
+    if (shopDestinationType === "shop") {
+      onsiteDestinationObject.storefront_shop_id = shopDestination;
+    } else if (shopDestinationType === "product_set") {
+      onsiteDestinationObject.shop_collection_product_set_id = shopDestination;
+    } else if (shopDestinationType === "product") {
+      onsiteDestinationObject.details_page_product_id = shopDestination;
+    }
+    shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
+  }
+
   if (useDynamicCreative) {
     return {
       name: adName,
@@ -749,7 +764,9 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
           descriptions: descriptionsArray.map(text => ({ text })),
           ad_formats: ["SINGLE_VIDEO"],
           call_to_action_types: [cta],
-          link_urls: [{ website_url: link }]
+          link_urls: [{ website_url: link }],
+          ...shopDestinationFieldsForAssetFeed, // Apply shop destination fields
+
         },
         degrees_of_freedom_spec: {
           creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
@@ -758,39 +775,55 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       },
       status: 'ACTIVE'
     };
-  } else {
+  } else { // Non-Dynamic
+    const creativePart = {
+      object_story_spec: {
+        page_id: pageId,
+        ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+        video_data: {
+          video_id: videoId,
+          call_to_action: { type: cta, value: { link } },
+          message: messagesArray[0],
+          title: headlines[0],
+          link_description: descriptionsArray[0],
+          ...(thumbnailHash ? { image_hash: thumbnailHash } : { image_url: thumbnailUrl })
+        }
+      },
+      ...(urlTags && { url_tags: urlTags }),
+      degrees_of_freedom_spec: {
+        creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
+      }
+    };
+
+    if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
+      creativePart.asset_feed_spec = shopDestinationFieldsForAssetFeed;
+    }
+
     return {
       name: adName,
       adset_id: adSetId,
-      creative: {
-        object_story_spec: {
-          page_id: pageId,
-          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
-          video_data: {
-            video_id: videoId,
-            call_to_action: { type: cta, value: { link } },
-            message: messagesArray[0],
-            title: headlines[0],
-            link_description: descriptionsArray[0],
-            ...(thumbnailHash
-              ? { image_hash: thumbnailHash }
-              : { image_url: thumbnailUrl }
-            )
-          }
-        },
-        ...(urlTags && { url_tags: urlTags }),
-        degrees_of_freedom_spec: {
-          creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
-
-        }
-      },
+      creative: creativePart,
       status: 'ACTIVE'
     };
   }
+
 }
 
 // Helper: Build image creative payload
-function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements }) {
+function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType }) {
+
+  if (shopDestination && shopDestinationType) {
+    const onsiteDestinationObject = {};
+    if (shopDestinationType === "shop") {
+      onsiteDestinationObject.storefront_shop_id = shopDestination;
+    } else if (shopDestinationType === "product_set") {
+      onsiteDestinationObject.shop_collection_product_set_id = shopDestination;
+    } else if (shopDestinationType === "product") {
+      onsiteDestinationObject.details_page_product_id = shopDestination;
+    }
+    shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
+  }
+
   if (useDynamicCreative) {
     return {
       name: adName,
@@ -808,7 +841,9 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
           descriptions: descriptionsArray.map(text => ({ text })),
           ad_formats: ["SINGLE_IMAGE"],
           call_to_action_types: [cta],
-          link_urls: [{ website_url: link }]
+          link_urls: [{ website_url: link }],
+          ...shopDestinationFieldsForAssetFeed,
+
         },
         degrees_of_freedom_spec: {
           creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
@@ -817,40 +852,44 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       },
       status: 'ACTIVE'
     };
-  } else {
-    const finalPayload = {
-      name: adName,
-      adset_id: adSetId,
-      creative: {
-        object_story_spec: {
-          page_id: pageId,
-          ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
-          link_data: {
-            name: headlines[0],
-            description: descriptionsArray[0],
-            call_to_action: { type: cta, value: { link } },
-            message: messagesArray[0],
-            link: link,
-            caption: link,
-            image_hash: imageHash,
-          },
-        },
-        ...(urlTags && { url_tags: urlTags }),
-        degrees_of_freedom_spec: {
-          creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
-
+  } else { // Non-Dynamic
+    const creativePart = {
+      object_story_spec: {
+        page_id: pageId,
+        ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+        link_data: {
+          name: headlines[0],
+          description: descriptionsArray[0],
+          call_to_action: { type: cta, value: { link } },
+          message: messagesArray[0],
+          link: link,
+          caption: link,
+          image_hash: imageHash,
         },
       },
+      ...(urlTags && { url_tags: urlTags }),
+      degrees_of_freedom_spec: {
+        creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
+      },
+    };
+
+    if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
+      creativePart.asset_feed_spec = shopDestinationFieldsForAssetFeed;
+    }
+
+    return {
+      name: adName,
+      adset_id: adSetId,
+      creative: creativePart,
       status: "ACTIVE",
     };
-    return finalPayload;
-
   }
+
 }
 
 
 
-async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements) {
+async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType) {
   const file = req.files.imageFile?.[0];
   if (!file) throw new Error('Video file is required');
 
@@ -918,7 +957,9 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     useDynamicCreative,
     instagramAccountId,
     urlTags,
-    creativeEnhancements
+    creativeEnhancements,
+    shopDestination,
+    shopDestinationType
   });
 
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
@@ -936,7 +977,7 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
 
 
 // Helper: Handle Image Ad Creation
-async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements) {
+async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType) {
   const file = req.files.imageFile && req.files.imageFile[0];
   const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
 
@@ -966,7 +1007,9 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     useDynamicCreative,
     instagramAccountId,
     urlTags,
-    creativeEnhancements
+    creativeEnhancements,
+    shopDestination,
+    shopDestinationType
   });
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await retryWithBackoff(() =>
@@ -1000,7 +1043,7 @@ app.post(
 
     try {
       // Extract basic fields and parse creative text fields.
-      const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId } = req.body;
+      const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId, shopDestination, shopDestinationType } = req.body;
 
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
 
@@ -1153,7 +1196,9 @@ app.post(
             descriptionsArray,
             instagramAccountId,
             urlTags,
-            creativeEnhancements
+            creativeEnhancements,
+            shopDestination,
+            shopDestinationType
           );
         } else {
           result = await handleDynamicImageAd(
@@ -1170,7 +1215,9 @@ app.post(
             descriptionsArray,
             instagramAccountId,
             urlTags,
-            creativeEnhancements
+            creativeEnhancements,
+            shopDestination,
+            shopDestinationType
           );
         }
       } else {
@@ -1194,7 +1241,9 @@ app.post(
             useDynamicCreative,
             instagramAccountId,
             urlTags,
-            creativeEnhancements
+            creativeEnhancements,
+            shopDestination,
+            shopDestinationType
           );
         } else {
           result = await handleImageAd(
@@ -1212,7 +1261,9 @@ app.post(
             useDynamicCreative,
             instagramAccountId,
             urlTags,
-            creativeEnhancements
+            creativeEnhancements,
+            shopDestination,
+            shopDestinationType
           );
         }
       }
@@ -1632,7 +1683,7 @@ async function fetchRecentAds(adAccountId, token) {
 
 
 // Helper: Process multiple images for dynamic creative.
-async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements) {
+async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType) {
   const mediaFiles = req.files.mediaFiles;
   let imageHashes = [];
   for (const file of mediaFiles) {
@@ -1651,6 +1702,22 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     imageHashes.push({ hash: imagesInfo[key].hash });
     await fs.promises.unlink(file.path).catch(err => console.error("Error deleting image file:", err));
   }
+
+  let shopDestinationFields = {}; // Will hold { onsite_destinations: [...] }
+  if (shopDestination && shopDestinationType) {
+    const onsiteDestinationObject = {};
+    if (shopDestinationType === "shop") {
+      onsiteDestinationObject.storefront_shop_id = shopDestination;
+    } else if (shopDestinationType === "product_set") {
+      onsiteDestinationObject.shop_collection_product_set_id = shopDestination;
+    } else if (shopDestinationType === "product") {
+      onsiteDestinationObject.details_page_product_id = shopDestination;
+    }
+    shopDestinationFields.onsite_destinations = [onsiteDestinationObject]; // Correct structure
+  }
+
+
+
   const assetFeedSpec = {
     images: imageHashes,
     titles: headlines.map(text => ({ text })),
@@ -1658,7 +1725,9 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     descriptions: descriptionsArray.map(text => ({ text })),
     ad_formats: ["SINGLE_IMAGE"],
     call_to_action_types: [cta],
-    link_urls: [{ website_url: link }]
+    link_urls: [{ website_url: link }],
+    ...shopDestinationFields // Apply shop spec
+
   };
   const creativePayload = {
     name: adName,
@@ -1689,7 +1758,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
 }
 
 
-async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements) {
+async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType) {
   const mediaFiles = req.files.mediaFiles;
   const thumbFile = req.files.thumbnail?.[0];
   const fallbackThumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg";
@@ -1752,6 +1821,20 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     await fs.promises.unlink(thumbFile.path).catch(err => console.error("Error deleting thumbnail file:", err));
   }
 
+  let shopDestinationFields = {}; // Will hold { onsite_destinations: [...] }
+  if (shopDestination && shopDestinationType) {
+    const onsiteDestinationObject = {};
+    if (shopDestinationType === "shop") {
+      onsiteDestinationObject.storefront_shop_id = shopDestination;
+    } else if (shopDestinationType === "product_set") {
+      onsiteDestinationObject.shop_collection_product_set_id = shopDestination;
+    } else if (shopDestinationType === "product") {
+      onsiteDestinationObject.details_page_product_id = shopDestination;
+    }
+    shopDestinationFields.onsite_destinations = [onsiteDestinationObject]; // Correct structure
+  }
+
+
   const assetFeedSpec = {
     videos: videoAssets,
     titles: headlines.map(text => ({ text })),
@@ -1759,7 +1842,9 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     descriptions: descriptionsArray.map(text => ({ text })),
     ad_formats: ["SINGLE_VIDEO"],
     call_to_action_types: [cta],
-    link_urls: [{ website_url: link }]
+    link_urls: [{ website_url: link }],
+    ...shopDestinationFields // Apply shop spec
+
   };
 
   const creativePayload = {
