@@ -683,7 +683,7 @@ function cleanupUploadedFiles(files) {
 }
 
 // Helper: Build video creative payload
-function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, thumbnailUrl, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType }) {
+function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, thumbnailUrl, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus }) {
 
   let shopDestinationFieldsForAssetFeed = {};
 
@@ -731,7 +731,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
 
         }
       },
-      status: 'ACTIVE'
+      status: adStatus
     };
   } else { // Non-Dynamic
     const creativePart = {
@@ -761,14 +761,14 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       name: adName,
       adset_id: adSetId,
       creative: creativePart,
-      status: 'ACTIVE'
+      status: adStatus
     };
   }
 
 }
 
 // Helper: Build image creative payload
-function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType }) {
+function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus }) {
 
   let shopDestinationFieldsForAssetFeed = {};
 
@@ -810,7 +810,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
 
         }
       },
-      status: 'ACTIVE'
+      status: adStatus
     };
   } else { // Non-Dynamic
     const creativePart = {
@@ -841,7 +841,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       name: adName,
       adset_id: adSetId,
       creative: creativePart,
-      status: "ACTIVE",
+      status: adStatus
     };
   }
 
@@ -849,7 +849,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
 
 
 
-async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType) {
+async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus) {
   const file = req.files.imageFile?.[0];
   if (!file) throw new Error('Video file is required');
 
@@ -919,7 +919,8 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     urlTags,
     creativeEnhancements,
     shopDestination,
-    shopDestinationType
+    shopDestinationType,
+    adStatus
   });
 
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
@@ -937,7 +938,7 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
 
 
 // Helper: Handle Image Ad Creation
-async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType) {
+async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus) {
   const file = req.files.imageFile && req.files.imageFile[0];
   const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
 
@@ -969,7 +970,8 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     urlTags,
     creativeEnhancements,
     shopDestination,
-    shopDestinationType
+    shopDestinationType,
+    adStatus
   });
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await retryWithBackoff(() =>
@@ -1003,7 +1005,7 @@ app.post(
 
     try {
       // Extract basic fields and parse creative text fields.
-      const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId, shopDestination, shopDestinationType } = req.body;
+      const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId, shopDestination, shopDestinationType, launchPaused } = req.body;
 
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
 
@@ -1013,6 +1015,8 @@ app.post(
       const headlines = parseField(req.body.headlines, req.body.headline);
       const descriptionsArray = parseField(req.body.descriptions, req.body.description);
       const messagesArray = parseField(req.body.messages, req.body.message);
+      const adStatus = launchPaused === 'true' ? 'PAUSED' : 'ACTIVE';
+
 
       // Parse drive files if they exist (for dynamic ad sets)
       const driveFiles = [];
@@ -1158,7 +1162,8 @@ app.post(
             urlTags,
             creativeEnhancements,
             shopDestination,
-            shopDestinationType
+            shopDestinationType,
+            adStatus
           );
         } else {
           result = await handleDynamicImageAd(
@@ -1177,7 +1182,8 @@ app.post(
             urlTags,
             creativeEnhancements,
             shopDestination,
-            shopDestinationType
+            shopDestinationType,
+            adStatus
           );
         }
       } else {
@@ -1203,7 +1209,8 @@ app.post(
             urlTags,
             creativeEnhancements,
             shopDestination,
-            shopDestinationType
+            shopDestinationType,
+            adStatus
           );
         } else {
           result = await handleImageAd(
@@ -1223,7 +1230,8 @@ app.post(
             urlTags,
             creativeEnhancements,
             shopDestination,
-            shopDestinationType
+            shopDestinationType,
+            adStatus
           );
         }
       }
@@ -1643,7 +1651,7 @@ async function fetchRecentAds(adAccountId, token) {
 
 
 // Helper: Process multiple images for dynamic creative.
-async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType) {
+async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus) {
   const mediaFiles = req.files.mediaFiles;
   let imageHashes = [];
   for (const file of mediaFiles) {
@@ -1704,7 +1712,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
 
       }
     },
-    status: 'ACTIVE'
+    status: adStatus
   };
 
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
@@ -1718,7 +1726,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
 }
 
 
-async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType) {
+async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus) {
   const mediaFiles = req.files.mediaFiles;
   const thumbFile = req.files.thumbnail?.[0];
   const fallbackThumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg";
@@ -1822,7 +1830,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
 
       }
     },
-    status: 'ACTIVE'
+    status: adStatus
   };
 
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
