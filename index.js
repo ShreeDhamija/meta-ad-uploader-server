@@ -1135,7 +1135,7 @@ async function handleImageAd(
   });
 
   // 👉 Step 1: Create Ad Creative
-  const createCreativeUrl = `https://graph.facebook.com/v23.0/act_${adAccountId}/adcreatives`;
+  const createCreativeUrl = `https://graph.facebook.com/v23.0/${adAccountId}/adcreatives`;
   const createCreativeResponse = await axios.post(createCreativeUrl, creativePayload, {
     params: { access_token: token }
   });
