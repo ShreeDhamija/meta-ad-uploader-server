@@ -686,6 +686,8 @@ function cleanupUploadedFiles(files) {
 function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, thumbnailUrl, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus }) {
 
   let shopDestinationFieldsForAssetFeed = {};
+  let shopSpecificAssetFeedAdditions = {}; // To hold ad_formats and optimization_type
+
 
   if (shopDestination && shopDestinationType) {
     const onsiteDestinationObject = {};
@@ -697,7 +699,14 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       onsiteDestinationObject.details_page_product_id = shopDestination;
     }
     shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
+
+    if (Object.keys(onsiteDestinationObject).length > 0) {
+      shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
+    }
   }
+
+  const hasShopDestination = !!shopDestinationFieldsForAssetFeed.onsite_destinations;
+
 
   if (useDynamicCreative) {
     return {
@@ -720,9 +729,10 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
           titles: headlines.map(text => ({ text })),
           bodies: messagesArray.map(text => ({ text })),
           descriptions: descriptionsArray.map(text => ({ text })),
-          ad_formats: ["SINGLE_VIDEO"],
+          ad_formats: hasShopDestination ? ["CAROUSEL", "COLLECTION"] : ["SINGLE_VIDEO"], // Conditional
           call_to_action_types: [cta],
           link_urls: [{ website_url: link }],
+          ...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
           ...shopDestinationFieldsForAssetFeed, // Apply shop destination fields
 
         },
@@ -753,9 +763,14 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       }
     };
 
-    if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
-      creativePart.asset_feed_spec = shopDestinationFieldsForAssetFeed;
+    if (hasShopDestination) {
+      creativePart.asset_feed_spec = {
+        ...shopDestinationFieldsForAssetFeed, // Contains onsite_destinations
+        ad_formats: ["CAROUSEL", "COLLECTION"],
+        optimization_type: "FORMAT_AUTOMATION",
+      };
     }
+
 
     return {
       name: adName,
@@ -781,8 +796,11 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
     } else if (shopDestinationType === "product") {
       onsiteDestinationObject.details_page_product_id = shopDestination;
     }
-    shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
+    if (Object.keys(onsiteDestinationObject).length > 0) {
+      shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
+    }
   }
+  const hasShopDestination = !!shopDestinationFieldsForAssetFeed.onsite_destinations;
 
   if (useDynamicCreative) {
     return {
@@ -799,9 +817,10 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
           titles: headlines.map(text => ({ text })),
           bodies: messagesArray.map(text => ({ text })),
           descriptions: descriptionsArray.map(text => ({ text })),
-          ad_formats: ["SINGLE_IMAGE"],
+          ad_formats: hasShopDestination ? ["CAROUSEL", "COLLECTION"] : ["SINGLE_IMAGE"], // Conditional
           call_to_action_types: [cta],
           link_urls: [{ website_url: link }],
+          ...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
           ...shopDestinationFieldsForAssetFeed,
 
         },
@@ -833,8 +852,12 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       },
     };
 
-    if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
-      creativePart.asset_feed_spec = shopDestinationFieldsForAssetFeed;
+    if (hasShopDestination) {
+      creativePart.asset_feed_spec = {
+        ...shopDestinationFieldsForAssetFeed, // Contains onsite_destinations
+        ad_formats: ["CAROUSEL", "COLLECTION"],
+        optimization_type: "FORMAT_AUTOMATION",
+      };
     }
 
     return {
@@ -1681,8 +1704,11 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     } else if (shopDestinationType === "product") {
       onsiteDestinationObject.details_page_product_id = shopDestination;
     }
-    shopDestinationFields.onsite_destinations = [onsiteDestinationObject]; // Correct structure
+    if (Object.keys(onsiteDestinationObject).length > 0) {
+      shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
+    }
   }
+  const hasShopDestination = !!shopDestinationFieldsForAssetFeed.onsite_destinations;
 
 
 
@@ -1691,9 +1717,10 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     titles: headlines.map(text => ({ text })),
     bodies: messagesArray.map(text => ({ text })),
     descriptions: descriptionsArray.map(text => ({ text })),
-    ad_formats: ["SINGLE_IMAGE"],
+    ad_formats: hasShopDestination ? ["CAROUSEL", "COLLECTION"] : ["SINGLE_IMAGE"], // Conditional
     call_to_action_types: [cta],
     link_urls: [{ website_url: link }],
+    ...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
     ...shopDestinationFields // Apply shop spec
 
   };
@@ -1799,8 +1826,11 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     } else if (shopDestinationType === "product") {
       onsiteDestinationObject.details_page_product_id = shopDestination;
     }
-    shopDestinationFields.onsite_destinations = [onsiteDestinationObject]; // Correct structure
+    if (Object.keys(onsiteDestinationObject).length > 0) {
+      shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
+    }
   }
+  const hasShopDestination = !!shopDestinationFieldsForAssetFeed.onsite_destinations;
 
 
   const assetFeedSpec = {
@@ -1808,9 +1838,10 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     titles: headlines.map(text => ({ text })),
     bodies: messagesArray.map(text => ({ text })),
     descriptions: descriptionsArray.map(text => ({ text })),
-    ad_formats: ["SINGLE_VIDEO"],
+    ad_formats: hasShopDestination ? ["CAROUSEL", "COLLECTION"] : ["SINGLE_VIDEO"], // Conditional
     call_to_action_types: [cta],
     link_urls: [{ website_url: link }],
+    ...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
     ...shopDestinationFields // Apply shop spec
 
   };
