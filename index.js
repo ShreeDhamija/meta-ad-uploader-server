@@ -729,7 +729,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
           titles: headlines.map(text => ({ text })),
           bodies: messagesArray.map(text => ({ text })),
           descriptions: descriptionsArray.map(text => ({ text })),
-          ad_formats: hasShopDestination ? ["CAROUSEL", "COLLECTION"] : ["SINGLE_VIDEO"], // Conditional
+          ad_formats: hasShopDestination ? ["CAROUSEL"] : ["SINGLE_VIDEO"], // Conditional
           call_to_action_types: [cta],
           link_urls: [{ website_url: link }],
           //...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
@@ -766,7 +766,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
     if (hasShopDestination) {
       creativePart.asset_feed_spec = {
         ...shopDestinationFieldsForAssetFeed, // Contains onsite_destinations
-        ad_formats: ["CAROUSEL", "COLLECTION"],
+        ad_formats: ["CAROUSEL"],
         //optimization_type: "FORMAT_AUTOMATION",
       };
     }
@@ -817,7 +817,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
           titles: headlines.map(text => ({ text })),
           bodies: messagesArray.map(text => ({ text })),
           descriptions: descriptionsArray.map(text => ({ text })),
-          ad_formats: hasShopDestination ? ["CAROUSEL", "COLLECTION"] : ["SINGLE_IMAGE"], // Conditional
+          ad_formats: hasShopDestination ? ["CAROUSEL"] : ["SINGLE_IMAGE"], // Conditional
           call_to_action_types: [cta],
           link_urls: [{ website_url: link }],
           //...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
@@ -855,7 +855,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
     if (hasShopDestination) {
       creativePart.asset_feed_spec = {
         ...shopDestinationFieldsForAssetFeed, // Contains onsite_destinations
-        ad_formats: ["CAROUSEL", "COLLECTION"],
+        ad_formats: ["CAROUSEL"],
         //optimization_type: "FORMAT_AUTOMATION",
       };
     }
@@ -1717,7 +1717,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     titles: headlines.map(text => ({ text })),
     bodies: messagesArray.map(text => ({ text })),
     descriptions: descriptionsArray.map(text => ({ text })),
-    ad_formats: hasShopDestination ? ["CAROUSEL", "COLLECTION"] : ["SINGLE_IMAGE"], // Conditional
+    ad_formats: hasShopDestination ? ["CAROUSEL"] : ["SINGLE_IMAGE"], // Conditional
     call_to_action_types: [cta],
     link_urls: [{ website_url: link }],
     //...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
@@ -1838,7 +1838,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     titles: headlines.map(text => ({ text })),
     bodies: messagesArray.map(text => ({ text })),
     descriptions: descriptionsArray.map(text => ({ text })),
-    ad_formats: hasShopDestination ? ["CAROUSEL", "COLLECTION"] : ["SINGLE_VIDEO"], // Conditional
+    ad_formats: hasShopDestination ? ["CAROUSEL"] : ["SINGLE_VIDEO"], // Conditional
     call_to_action_types: [cta],
     link_urls: [{ website_url: link }],
     //...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
