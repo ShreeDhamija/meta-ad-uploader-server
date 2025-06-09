@@ -732,7 +732,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
           ad_formats: hasShopDestination ? ["CAROUSEL", "COLLECTION"] : ["SINGLE_VIDEO"], // Conditional
           call_to_action_types: [cta],
           link_urls: [{ website_url: link }],
-          ...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
+          //...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
           ...shopDestinationFieldsForAssetFeed, // Apply shop destination fields
 
         },
@@ -767,7 +767,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       creativePart.asset_feed_spec = {
         ...shopDestinationFieldsForAssetFeed, // Contains onsite_destinations
         ad_formats: ["CAROUSEL", "COLLECTION"],
-        optimization_type: "FORMAT_AUTOMATION",
+        //optimization_type: "FORMAT_AUTOMATION",
       };
     }
 
@@ -820,7 +820,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
           ad_formats: hasShopDestination ? ["CAROUSEL", "COLLECTION"] : ["SINGLE_IMAGE"], // Conditional
           call_to_action_types: [cta],
           link_urls: [{ website_url: link }],
-          ...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
+          //...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
           ...shopDestinationFieldsForAssetFeed,
 
         },
@@ -856,7 +856,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       creativePart.asset_feed_spec = {
         ...shopDestinationFieldsForAssetFeed, // Contains onsite_destinations
         ad_formats: ["CAROUSEL", "COLLECTION"],
-        optimization_type: "FORMAT_AUTOMATION",
+        //optimization_type: "FORMAT_AUTOMATION",
       };
     }
 
@@ -1720,7 +1720,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     ad_formats: hasShopDestination ? ["CAROUSEL", "COLLECTION"] : ["SINGLE_IMAGE"], // Conditional
     call_to_action_types: [cta],
     link_urls: [{ website_url: link }],
-    ...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
+    //...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
     ...shopDestinationFields // Apply shop spec
 
   };
@@ -1841,7 +1841,7 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     ad_formats: hasShopDestination ? ["CAROUSEL", "COLLECTION"] : ["SINGLE_VIDEO"], // Conditional
     call_to_action_types: [cta],
     link_urls: [{ website_url: link }],
-    ...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
+    //...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
     ...shopDestinationFields // Apply shop spec
 
   };
