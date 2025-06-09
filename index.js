@@ -922,6 +922,7 @@ function buildImageCreativePayload({
     // descriptions: descriptionsArray.map(text => ({ text })),
     // call_to_action_types: [cta],
     // link_urls: [{ website_url: link }],
+    ad_formats: ["CAROUSEL"],
     onsite_destinations: [onsiteDestinationObject]
   };
 
