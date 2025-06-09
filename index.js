@@ -783,12 +783,129 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
 }
 
 // Helper: Build image creative payload
-function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus }) {
+// function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus }) {
 
-  let shopDestinationFieldsForAssetFeed = {};
+//   let shopDestinationFieldsForAssetFeed = {};
 
+//   if (shopDestination && shopDestinationType) {
+//     const onsiteDestinationObject = {};
+//     if (shopDestinationType === "shop") {
+//       onsiteDestinationObject.storefront_shop_id = shopDestination;
+//     } else if (shopDestinationType === "product_set") {
+//       onsiteDestinationObject.shop_collection_product_set_id = shopDestination;
+//     } else if (shopDestinationType === "product") {
+//       onsiteDestinationObject.details_page_product_id = shopDestination;
+//     }
+//     if (Object.keys(onsiteDestinationObject).length > 0) {
+//       shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
+//     }
+//   }
+//   const hasShopDestination = !!shopDestinationFieldsForAssetFeed.onsite_destinations;
+
+//   if (useDynamicCreative) {
+//     return {
+//       name: adName,
+//       adset_id: adSetId,
+//       creative: {
+//         object_story_spec: {
+//           page_id: pageId,
+//           ...(instagramAccountId && { instagram_user_id: instagramAccountId })
+//         },
+//         ...(urlTags && { url_tags: urlTags }),
+//         asset_feed_spec: {
+//           images: [{ hash: imageHash }],
+//           titles: headlines.map(text => ({ text })),
+//           bodies: messagesArray.map(text => ({ text })),
+//           descriptions: descriptionsArray.map(text => ({ text })),
+//           ad_formats: hasShopDestination ? ["CAROUSEL"] : ["SINGLE_IMAGE"], // Conditional
+//           call_to_action_types: [cta],
+//           link_urls: [{ website_url: link }],
+//           //...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
+//           ...shopDestinationFieldsForAssetFeed,
+
+//         },
+//         degrees_of_freedom_spec: {
+//           creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
+
+//         }
+//       },
+//       status: adStatus
+//     };
+//   } else { // Non-Dynamic
+//     const creativePart = {
+//       object_story_spec: {
+//         page_id: pageId,
+//         ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+//         link_data: {
+//           name: headlines[0],
+//           description: descriptionsArray[0],
+//           call_to_action: { type: cta, value: { link } },
+//           message: messagesArray[0],
+//           link: link,
+//           caption: link,
+//           image_hash: imageHash,
+//         },
+//       },
+//       ...(urlTags && { url_tags: urlTags }),
+//       degrees_of_freedom_spec: {
+//         creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
+//       },
+//     };
+
+//     if (hasShopDestination) {
+//       creativePart.asset_feed_spec = {
+//         ...shopDestinationFieldsForAssetFeed, // Contains onsite_destinations
+//         ad_formats: ["CAROUSEL"],
+//         //optimization_type: "FORMAT_AUTOMATION",
+//       };
+//     }
+
+//     return {
+//       name: adName,
+//       adset_id: adSetId,
+//       creative: creativePart,
+//       status: adStatus
+//     };
+//   }
+
+// }
+
+function buildImageCreativePayload({
+  adName,
+  pageId,
+  imageHash,
+  cta,
+  link,
+  headlines,
+  messagesArray,
+  descriptionsArray,
+  instagramAccountId,
+  urlTags,
+  creativeEnhancements,
+  shopDestination,
+  shopDestinationType
+}) {
+  const objectStorySpec = {
+    page_id: pageId,
+    ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+    link_data: {
+      name: headlines[0],
+      description: descriptionsArray[0],
+      call_to_action: {
+        type: cta,
+        value: {
+          link: link
+        }
+      },
+      message: messagesArray[0],
+      link: link,
+      caption: link,
+      image_hash: imageHash
+    }
+  };
+
+  const onsiteDestinationObject = {};
   if (shopDestination && shopDestinationType) {
-    const onsiteDestinationObject = {};
     if (shopDestinationType === "shop") {
       onsiteDestinationObject.storefront_shop_id = shopDestination;
     } else if (shopDestinationType === "product_set") {
@@ -796,79 +913,31 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
     } else if (shopDestinationType === "product") {
       onsiteDestinationObject.details_page_product_id = shopDestination;
     }
-    if (Object.keys(onsiteDestinationObject).length > 0) {
-      shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
-    }
-  }
-  const hasShopDestination = !!shopDestinationFieldsForAssetFeed.onsite_destinations;
-
-  if (useDynamicCreative) {
-    return {
-      name: adName,
-      adset_id: adSetId,
-      creative: {
-        object_story_spec: {
-          page_id: pageId,
-          ...(instagramAccountId && { instagram_user_id: instagramAccountId })
-        },
-        ...(urlTags && { url_tags: urlTags }),
-        asset_feed_spec: {
-          images: [{ hash: imageHash }],
-          titles: headlines.map(text => ({ text })),
-          bodies: messagesArray.map(text => ({ text })),
-          descriptions: descriptionsArray.map(text => ({ text })),
-          ad_formats: hasShopDestination ? ["CAROUSEL"] : ["SINGLE_IMAGE"], // Conditional
-          call_to_action_types: [cta],
-          link_urls: [{ website_url: link }],
-          //...(hasShopDestination && { optimization_type: "FORMAT_AUTOMATION" }), // Conditional
-          ...shopDestinationFieldsForAssetFeed,
-
-        },
-        degrees_of_freedom_spec: {
-          creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
-
-        }
-      },
-      status: adStatus
-    };
-  } else { // Non-Dynamic
-    const creativePart = {
-      object_story_spec: {
-        page_id: pageId,
-        ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
-        link_data: {
-          name: headlines[0],
-          description: descriptionsArray[0],
-          call_to_action: { type: cta, value: { link } },
-          message: messagesArray[0],
-          link: link,
-          caption: link,
-          image_hash: imageHash,
-        },
-      },
-      ...(urlTags && { url_tags: urlTags }),
-      degrees_of_freedom_spec: {
-        creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
-      },
-    };
-
-    if (hasShopDestination) {
-      creativePart.asset_feed_spec = {
-        ...shopDestinationFieldsForAssetFeed, // Contains onsite_destinations
-        ad_formats: ["CAROUSEL"],
-        //optimization_type: "FORMAT_AUTOMATION",
-      };
-    }
-
-    return {
-      name: adName,
-      adset_id: adSetId,
-      creative: creativePart,
-      status: adStatus
-    };
   }
 
+  const assetFeedSpec = {
+    // images: [{ hash: imageHash }],
+    // titles: headlines.map(text => ({ text })),
+    // bodies: messagesArray.map(text => ({ text })),
+    // descriptions: descriptionsArray.map(text => ({ text })),
+    // call_to_action_types: [cta],
+    // link_urls: [{ website_url: link }],
+    onsite_destinations: [onsiteDestinationObject]
+  };
+
+  const creativePayload = {
+    name: adName,
+    object_story_spec: objectStorySpec,
+    asset_feed_spec: assetFeedSpec,
+    degrees_of_freedom_spec: {
+      creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
+    },
+    ...(urlTags && { url_tags: urlTags })
+  };
+
+  return creativePayload;
 }
+
 
 
 
@@ -961,7 +1030,76 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
 
 
 // Helper: Handle Image Ad Creation
-async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus) {
+// async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus) {
+//   const file = req.files.imageFile && req.files.imageFile[0];
+//   const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+
+//   const formData = new FormData();
+//   formData.append('access_token', token);
+//   formData.append('file', fs.createReadStream(file.path), {
+//     filename: file.originalname,
+//     contentType: file.mimetype
+//   });
+//   const uploadResponse = await axios.post(uploadUrl, formData, {
+//     headers: formData.getHeaders()
+//   });
+//   const imagesInfo = uploadResponse.data.images;
+//   const filenameKey = Object.keys(imagesInfo)[0];
+//   const imageHash = imagesInfo[filenameKey].hash;
+
+//   const creativePayload = buildImageCreativePayload({
+//     adName,
+//     adSetId,
+//     pageId,
+//     imageHash,
+//     cta,
+//     link,
+//     headlines,
+//     messagesArray,
+//     descriptionsArray,
+//     useDynamicCreative,
+//     instagramAccountId,
+//     urlTags,
+//     creativeEnhancements,
+//     shopDestination,
+//     shopDestinationType,
+//     adStatus
+//   });
+//   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+//   const createAdResponse = await retryWithBackoff(() =>
+//     axios.post(createAdUrl, creativePayload, {
+//       params: { access_token: token }
+//     })
+//   );
+
+
+//   fs.unlink(file.path, err => {
+//     if (err) console.error("Error deleting image file:", err);
+//     else console.log("Image file deleted:", file.path);
+//   });
+
+//   return createAdResponse.data;
+// }
+async function handleImageAd(
+  req,
+  token,
+  adAccountId,
+  adSetId,
+  pageId,
+  adName,
+  cta,
+  link,
+  headlines,
+  messagesArray,
+  descriptionsArray,
+  useDynamicCreative,
+  instagramAccountId,
+  urlTags,
+  creativeEnhancements,
+  shopDestination,
+  shopDestinationType,
+  adStatus
+) {
   const file = req.files.imageFile && req.files.imageFile[0];
   const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
 
@@ -974,13 +1112,14 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
   const uploadResponse = await axios.post(uploadUrl, formData, {
     headers: formData.getHeaders()
   });
+
   const imagesInfo = uploadResponse.data.images;
   const filenameKey = Object.keys(imagesInfo)[0];
   const imageHash = imagesInfo[filenameKey].hash;
 
+  // 👉 Build creative payload for /adcreatives
   const creativePayload = buildImageCreativePayload({
     adName,
-    adSetId,
     pageId,
     imageHash,
     cta,
@@ -988,22 +1127,36 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     headlines,
     messagesArray,
     descriptionsArray,
-    useDynamicCreative,
     instagramAccountId,
     urlTags,
     creativeEnhancements,
     shopDestination,
-    shopDestinationType,
-    adStatus
+    shopDestinationType
   });
-  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+
+  // 👉 Step 1: Create Ad Creative
+  const createCreativeUrl = `https://graph.facebook.com/v23.0/act_${adAccountId}/adcreatives`;
+  const createCreativeResponse = await axios.post(createCreativeUrl, creativePayload, {
+    params: { access_token: token }
+  });
+  const creativeId = createCreativeResponse.data.id;
+
+  // 👉 Step 2: Create Ad with creative_id
+  const createAdUrl = `https://graph.facebook.com/v23.0/${adAccountId}/ads`;
+  const adPayload = {
+    name: adName,
+    adset_id: adSetId,
+    creative: { creative_id: creativeId },
+    status: adStatus
+  };
+
   const createAdResponse = await retryWithBackoff(() =>
-    axios.post(createAdUrl, creativePayload, {
+    axios.post(createAdUrl, adPayload, {
       params: { access_token: token }
     })
   );
 
-
+  // 🧹 Cleanup
   fs.unlink(file.path, err => {
     if (err) console.error("Error deleting image file:", err);
     else console.log("Image file deleted:", file.path);
