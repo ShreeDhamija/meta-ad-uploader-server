@@ -677,6 +677,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       onsiteDestinationObject.details_page_product_id = shopDestination;
     }
     shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
+    shopDestinationFieldsForAssetFeed.ad_formats = ["CAROUSEL"];
   }
 
   if (useDynamicCreative) {
