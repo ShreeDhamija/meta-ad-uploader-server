@@ -1507,26 +1507,7 @@ app.get("/settings/ad-account", async (req, res) => {
 
 
 
-// 1️⃣ Redirect to Google's OAuth 2.0 server
-// app.get('/auth/google', (req, res) => {
 
-//   const csrfToken = crypto.randomUUID(); // or any random string
-//   req.session.googleCSRF = csrfToken;
-
-//   const stateObj = {
-//     csrf: csrfToken,
-//     mode: isPopup ? "popup" : "normal"
-//   };
-
-//   const authUrl = oauth2Client.generateAuthUrl({
-//     access_type: 'offline', // to get refresh token
-//     prompt: 'consent',       // to always get refresh token
-//     scope: SCOPES,
-//     state: Buffer.from(JSON.stringify(stateObj)).toString('base64')
-
-//   });
-//   res.redirect(authUrl);
-// });
 app.get('/auth/google', (req, res) => {
   const isPopup = req.query.popup === 'true';
 
@@ -1550,29 +1531,7 @@ app.get('/auth/google', (req, res) => {
   res.redirect(authUrl);
 });
 
-// 2️⃣ OAuth 2.0 server callback
-// app.get('/auth/google/callback', async (req, res) => {
-//   const { code } = req.query;
 
-//   try {
-//     const { tokens } = await oauth2Client.getToken(code);
-//     req.session.googleTokens = tokens;
-
-//     // Save session properly
-//     await new Promise((resolve, reject) => {
-//       req.session.save(err => {
-//         if (err) reject(err);
-//         else resolve();
-//       });
-//     });
-
-//     // Redirect back to your app
-//     res.redirect('https://www.withblip.com/?googleAuth=success');
-//   } catch (error) {
-//     console.error('Google OAuth error:', error);
-//     res.redirect('https://www.withblip.com/?googleAuth=error');
-//   }
-// });
 
 app.get('/auth/google/callback', async (req, res) => {
   const { code, state } = req.query;
@@ -1644,17 +1603,30 @@ async function ensureValidGoogleToken(req) {
 
 // 4️⃣ Endpoint to check if user is authenticated and get token
 app.get('/auth/google/status', async (req, res) => {
-  try {
-    const accessToken = await ensureValidGoogleToken(req);
-    return res.json({
-      authenticated: true,
-      accessToken: accessToken
-    });
-  } catch (error) {
-    console.error('Auth status check failed:', error.message);
-    return res.json({ authenticated: false });
+  const accessToken = req.session.googleAccessToken;
+  const refreshToken = req.session.googleRefreshToken;
+
+  if (accessToken) {
+    return res.json({ authenticated: true, accessToken });
   }
+
+  if (refreshToken) {
+    try {
+      oauth2Client.setCredentials({ refresh_token: refreshToken });
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      req.session.googleAccessToken = credentials.access_token;
+      await new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
+
+      return res.json({ authenticated: true, accessToken: credentials.access_token });
+    } catch (err) {
+      console.error("Failed to refresh access token:", err);
+      return res.json({ authenticated: false });
+    }
+  }
+
+  return res.json({ authenticated: false });
 });
+
 
 // 5️⃣ Example: List Google Drive files
 app.get('/auth/google/list-files', async (req, res) => {
