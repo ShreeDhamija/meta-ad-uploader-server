@@ -1508,12 +1508,45 @@ app.get("/settings/ad-account", async (req, res) => {
 
 
 // 1️⃣ Redirect to Google's OAuth 2.0 server
+// app.get('/auth/google', (req, res) => {
+
+//   const csrfToken = crypto.randomUUID(); // or any random string
+//   req.session.googleCSRF = csrfToken;
+
+//   const stateObj = {
+//     csrf: csrfToken,
+//     mode: isPopup ? "popup" : "normal"
+//   };
+
+//   const authUrl = oauth2Client.generateAuthUrl({
+//     access_type: 'offline', // to get refresh token
+//     prompt: 'consent',       // to always get refresh token
+//     scope: SCOPES,
+//     state: Buffer.from(JSON.stringify(stateObj)).toString('base64')
+
+//   });
+//   res.redirect(authUrl);
+// });
 app.get('/auth/google', (req, res) => {
+  const isPopup = req.query.popup === 'true';
+
+  const csrfToken = crypto.randomUUID();
+  req.session.googleCSRF = csrfToken;
+
+  const stateObj = {
+    csrf: csrfToken,
+    mode: isPopup ? 'popup' : 'normal'
+  };
+
+  const encodedState = Buffer.from(JSON.stringify(stateObj)).toString('base64');
+
   const authUrl = oauth2Client.generateAuthUrl({
-    access_type: 'offline', // to get refresh token
-    prompt: 'consent',       // to always get refresh token
+    access_type: 'offline',
+    prompt: 'consent',
     scope: SCOPES,
+    state: encodedState
   });
+
   res.redirect(authUrl);
 });
 
@@ -1542,77 +1575,56 @@ app.get('/auth/google', (req, res) => {
 // });
 
 app.get('/auth/google/callback', async (req, res) => {
-  const { code } = req.query;
+  const { code, state } = req.query;
+  if (!code || !state) {
+    return res.status(400).send("Missing code or state");
+  }
+
+  // 🔐 Validate the state parameter (anti-CSRF + popup mode)
+  let decodedState;
+  try {
+    decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
+  } catch (err) {
+    return res.status(400).send("Invalid state encoding");
+  }
+
+  const isPopup = decodedState.mode === 'popup';
+  const isValidCSRF = decodedState.csrf === req.session.googleCSRF;
+  if (!isValidCSRF) {
+    return res.status(400).send("Invalid OAuth state");
+  }
 
   try {
     const { tokens } = await oauth2Client.getToken(code);
-    req.session.googleTokens = tokens;
+    oauth2Client.setCredentials(tokens);
+    const accessToken = tokens.access_token;
 
-    // Save session properly
+    req.session.googleAccessToken = accessToken;
     await new Promise((resolve, reject) => {
-      req.session.save(err => {
-        if (err) reject(err);
-        else resolve();
-      });
+      req.session.save((err) => (err ? reject(err) : resolve()));
     });
 
-    // Check if this is a popup request
-    if (req.query.popup === 'true') {
-      // Handle popup flow - send HTML that closes the popup and notifies parent
-      res.send(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Authentication Successful</title>
-          </head>
-          <body>
-            <script>
-              // Notify parent window of successful authentication
-              if (window.opener) {
-                window.opener.postMessage("google_auth_success", "*");
-              }
-              // Close the popup window
-              window.close();
-            </script>
-            <p>Authentication successful! This window should close automatically.</p>
-          </body>
-        </html>
-      `);
-      return;
-    }
-
-    // Fallback to regular redirect for non-popup requests
-    res.redirect('https://www.withblip.com/?googleAuth=success');
-  } catch (error) {
-    console.error('Google OAuth error:', error);
-
-    if (req.query.popup === 'true') {
-      // Handle popup error flow
-      res.send(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Authentication Failed</title>
-          </head>
-          <body>
-            <script>
-              // Notify parent window of failed authentication (optional)
-              if (window.opener) {
-                window.opener.postMessage("google_auth_error", "*");
-              }
-              // Close the popup window
-              window.close();
-            </script>
-            <p>Authentication failed. This window should close automatically.</p>
-          </body>
-        </html>
+    if (isPopup) {
+      return res.send(`
+        <html><body>
+          <script>
+            window.opener?.postMessage(
+              { type: 'google-auth-success', accessToken: '${accessToken}' },
+              'https://www.withblip.com'
+            );
+            window.close();
+          </script>
+        </body></html>
       `);
     } else {
-      // Fallback error redirect
-      res.redirect('https://www.withblip.com/?googleAuth=error');
+      return res.redirect('https://www.withblip.com/?googleAuth=success');
     }
+  } catch (err) {
+    console.error("Google auth error:", err);
+    return res.status(500).send("Authentication failed");
   }
 });
+
 
 // 3️⃣ Helper to ensure valid token
 async function ensureValidGoogleToken(req) {
