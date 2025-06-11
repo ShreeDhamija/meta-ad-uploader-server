@@ -800,12 +800,12 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
         page_id: pageId,
         ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
         link_data: {
-          // name: headlines[0],
-          // description: descriptionsArray[0],
-          // call_to_action: { type: cta, value: { link } },
+          name: headlines[0],
+          description: descriptionsArray[0],
+          call_to_action: { type: cta, value: { link } },
           message: messagesArray[0],
           link: link,
-          // caption: link,
+          caption: link,
           image_hash: imageHash,
         },
       },
@@ -1518,6 +1518,29 @@ app.get('/auth/google', (req, res) => {
 });
 
 // 2️⃣ OAuth 2.0 server callback
+// app.get('/auth/google/callback', async (req, res) => {
+//   const { code } = req.query;
+
+//   try {
+//     const { tokens } = await oauth2Client.getToken(code);
+//     req.session.googleTokens = tokens;
+
+//     // Save session properly
+//     await new Promise((resolve, reject) => {
+//       req.session.save(err => {
+//         if (err) reject(err);
+//         else resolve();
+//       });
+//     });
+
+//     // Redirect back to your app
+//     res.redirect('https://www.withblip.com/?googleAuth=success');
+//   } catch (error) {
+//     console.error('Google OAuth error:', error);
+//     res.redirect('https://www.withblip.com/?googleAuth=error');
+//   }
+// });
+
 app.get('/auth/google/callback', async (req, res) => {
   const { code } = req.query;
 
@@ -1533,11 +1556,61 @@ app.get('/auth/google/callback', async (req, res) => {
       });
     });
 
-    // Redirect back to your app
+    // Check if this is a popup request
+    if (req.query.popup === 'true') {
+      // Handle popup flow - send HTML that closes the popup and notifies parent
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Authentication Successful</title>
+          </head>
+          <body>
+            <script>
+              // Notify parent window of successful authentication
+              if (window.opener) {
+                window.opener.postMessage("google_auth_success", "*");
+              }
+              // Close the popup window
+              window.close();
+            </script>
+            <p>Authentication successful! This window should close automatically.</p>
+          </body>
+        </html>
+      `);
+      return;
+    }
+
+    // Fallback to regular redirect for non-popup requests
     res.redirect('https://www.withblip.com/?googleAuth=success');
   } catch (error) {
     console.error('Google OAuth error:', error);
-    res.redirect('https://www.withblip.com/?googleAuth=error');
+
+    if (req.query.popup === 'true') {
+      // Handle popup error flow
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Authentication Failed</title>
+          </head>
+          <body>
+            <script>
+              // Notify parent window of failed authentication (optional)
+              if (window.opener) {
+                window.opener.postMessage("google_auth_error", "*");
+              }
+              // Close the popup window
+              window.close();
+            </script>
+            <p>Authentication failed. This window should close automatically.</p>
+          </body>
+        </html>
+      `);
+    } else {
+      // Fallback error redirect
+      res.redirect('https://www.withblip.com/?googleAuth=error');
+    }
   }
 });
 
