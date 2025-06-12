@@ -234,7 +234,7 @@ app.get('/auth/callback', async (req, res) => {
         facebookId,
         name,
         email,
-        picture,
+        //picture,
         accessToken: longLivedToken
       });
 
@@ -1352,7 +1352,7 @@ app.get("/auth/fetch-recent-copy", async (req, res) => {
     const response = await axios.get(url, {
       params: {
         access_token: token,
-        fields: 'name,creative{asset_feed_spec}',
+        fields: 'name,creative{asset_feed_spec,title,body}',
         limit: 5,
         sort: 'created_time_desc',
       },
@@ -1360,16 +1360,26 @@ app.get("/auth/fetch-recent-copy", async (req, res) => {
 
     const formattedAds = (response.data.data || [])
       .map(ad => {
-        const spec = ad.creative?.asset_feed_spec;
-        if (!spec) return null;
+        const creative = ad.creative || {};
+        const spec = creative.asset_feed_spec;
+
+        // Fallback handling
+        const primaryTexts = spec?.bodies?.map(b => b.text)
+          || (creative.body ? [creative.body] : []);
+
+        const headlines = spec?.titles?.map(t => t.text)
+          || (creative.title ? [creative.title] : []);
+
+        if (!primaryTexts.length && !headlines.length) return null; // still empty? skip
 
         return {
           adName: ad.name,
-          primaryTexts: spec.bodies?.map(b => b.text) || [],
-          headlines: spec.titles?.map(t => t.text) || [],
+          primaryTexts,
+          headlines,
         };
       })
       .filter(Boolean);
+
 
     res.json({ ads: formattedAds });
   } catch (err) {
