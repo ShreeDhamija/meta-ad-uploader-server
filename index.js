@@ -249,18 +249,59 @@ app.get('/auth/callback', async (req, res) => {
 });
 
 
+// app.get("/auth/me", async (req, res) => {
+//   const sessionUser = req.session.user
+//   if (!sessionUser) {
+//     return res.status(401).json({ error: "Not authenticated" })
+//   }
+
+//   try {
+//     const userData = await getUserByFacebookId(sessionUser.facebookId)
+
+//     if (!userData) {
+//       return res.status(401).json({ error: "User not found in database" })
+//     }
+
+//     return res.json({
+//       user: {
+//         name: userData.name,
+//         email: userData.email,
+//         preferences: userData.preferences || {},
+//         hasCompletedSignup: userData.hasCompletedSignup,
+//         profilePicUrl: userData.picture?.data?.url || "",
+//       },
+//     })
+//   } catch (err) {
+//     console.error("Error in /auth/me:", err)
+//     return res.status(500).json({ error: "Internal server error" })
+//   }
+// })
+
 app.get("/auth/me", async (req, res) => {
-  const sessionUser = req.session.user
-  if (!sessionUser) {
-    return res.status(401).json({ error: "Not authenticated" })
+  const sessionUser = req.session.user;
+  const accessToken = req.session.accessToken;
+
+  if (!sessionUser || !accessToken) {
+    return res.status(401).json({ error: "Not authenticated" });
   }
 
   try {
-    const userData = await getUserByFacebookId(sessionUser.facebookId)
+    const userData = await getUserByFacebookId(sessionUser.facebookId);
 
     if (!userData) {
-      return res.status(401).json({ error: "User not found in database" })
+      return res.status(401).json({ error: "User not found in database" });
     }
+
+    // Get latest profile picture using the stored access token
+    const picResponse = await axios.get(`https://graph.facebook.com/${sessionUser.facebookId}/picture`, {
+      params: {
+        access_token: accessToken,
+        type: "normal",
+        redirect: false
+      }
+    });
+
+    const profilePicUrl = picResponse.data?.data?.url || "";
 
     return res.json({
       user: {
@@ -268,14 +309,15 @@ app.get("/auth/me", async (req, res) => {
         email: userData.email,
         preferences: userData.preferences || {},
         hasCompletedSignup: userData.hasCompletedSignup,
-        profilePicUrl: userData.picture?.data?.url || "",
-      },
-    })
+        profilePicUrl,
+      }
+    });
   } catch (err) {
-    console.error("Error in /auth/me:", err)
-    return res.status(500).json({ error: "Internal server error" })
+    console.error("Error in /auth/me:", err.message);
+    return res.status(500).json({ error: "Internal server error" });
   }
-})
+});
+
 
 
 
