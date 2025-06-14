@@ -419,6 +419,8 @@ app.post('/auth/duplicate-adset', async (req, res) => {
       campaign_id: campaignId,
       rename_options: JSON.stringify({ rename_suffix: '_02' }),
       access_token: token,
+      status_option: "ACTIVE",
+
     };
     const copyResponse = await axios.post(copyUrl, null, { params });
     const newAdSetId = copyResponse.data.copied_adset_id;
@@ -1353,7 +1355,7 @@ app.get("/auth/fetch-recent-copy", async (req, res) => {
       params: {
         access_token: token,
         fields: 'name,creative{asset_feed_spec,title,body}',
-        limit: 5,
+        limit: 10,
         sort: 'created_time_desc',
       },
     });
