@@ -248,35 +248,6 @@ app.get('/auth/callback', async (req, res) => {
   }
 });
 
-
-// app.get("/auth/me", async (req, res) => {
-//   const sessionUser = req.session.user
-//   if (!sessionUser) {
-//     return res.status(401).json({ error: "Not authenticated" })
-//   }
-
-//   try {
-//     const userData = await getUserByFacebookId(sessionUser.facebookId)
-
-//     if (!userData) {
-//       return res.status(401).json({ error: "User not found in database" })
-//     }
-
-//     return res.json({
-//       user: {
-//         name: userData.name,
-//         email: userData.email,
-//         preferences: userData.preferences || {},
-//         hasCompletedSignup: userData.hasCompletedSignup,
-//         profilePicUrl: userData.picture?.data?.url || "",
-//       },
-//     })
-//   } catch (err) {
-//     console.error("Error in /auth/me:", err)
-//     return res.status(500).json({ error: "Internal server error" })
-//   }
-// })
-
 app.get("/auth/me", async (req, res) => {
   const sessionUser = req.session.user;
   const accessToken = req.session.accessToken;
@@ -1390,6 +1361,48 @@ app.get("/auth/fetch-recent-copy", async (req, res) => {
   }
 });
 
+app.get("/auth/fetch-recent-url-tags", async (req, res) => {
+  const token = req.session.accessToken;
+  const { adAccountId } = req.query;
+
+  if (!token) return res.status(401).json({ error: "Not authenticated" });
+  if (!adAccountId) return res.status(400).json({ error: "Missing adAccountId" });
+
+  try {
+    const adsRes = await axios.get(`https://graph.facebook.com/v22.0/${adAccountId}/ads`, {
+      params: {
+        access_token: token,
+        fields: "creative",
+        limit: 1,
+        sort: "created_time_desc"
+      }
+    });
+
+    const creativeId = adsRes.data?.data?.[0]?.creative?.id;
+    if (!creativeId) return res.status(404).json({ error: "No recent creative found" });
+
+    const creativeRes = await axios.get(`https://graph.facebook.com/v22.0/${creativeId}`, {
+      params: {
+        access_token: token,
+        fields: "url_tags"
+      }
+    });
+
+    const urlTags = creativeRes.data?.url_tags;
+    if (!urlTags) return res.status(404).json({ error: "No URL tags found on latest ad" });
+
+    // Parse the string into key-value pairs
+    const pairs = urlTags.split("&").map((pair) => {
+      const [key, value] = pair.split("=");
+      return { key, value };
+    });
+
+    res.json({ pairs });
+  } catch (err) {
+    console.error("Fetch recent url_tags error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to fetch url tags" });
+  }
+});
 
 
 
