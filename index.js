@@ -23,8 +23,7 @@ const { createClient } = require('redis');
 const { RedisStore } = require('connect-redis');
 const crypto = require('crypto');
 const { google } = require('googleapis');
-const { spawn } = require('child_process');
-const os = require('os'); // Add this import at the top
+
 
 app.use(cors({
   origin: [
@@ -125,73 +124,32 @@ async function retryWithBackoff(fn, maxAttempts = 3, initialDelay = 1000) {
     }
   }
 }
-async function uploadExtractedThumbnail(videoPath, token, adAccountId) {
-  const tempDir = os.tmpdir(); // Use system temp instead of /data/uploads
-  const thumbnailPath = path.join(tempDir, `thumb_${Date.now()}.jpg`);
 
+// Helper: Get Meta-generated thumbnail from video ID
+async function getMetaVideoThumbnail(videoId, token) {
   try {
-    console.log(`🎬 Using temp directory: ${tempDir}`);
-    await extractVideoThumbnail(videoPath, thumbnailPath);
-
-    // Rest of your upload code stays the same...
-    const thumbFormData = new FormData();
-    thumbFormData.append('access_token', token);
-    thumbFormData.append('file', fs.createReadStream(thumbnailPath), {
-      filename: path.basename(thumbnailPath),
-      contentType: 'image/jpeg'
-    });
-
-    const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-    const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
-      headers: thumbFormData.getHeaders()
-    });
-
-    const imagesInfo = thumbUploadResponse.data.images;
-    const key = Object.keys(imagesInfo)[0];
-    const thumbnailHash = imagesInfo[key].hash;
-
-    await fs.promises.unlink(thumbnailPath).catch(err => console.error("⚠️ Error deleting extracted thumbnail:", err));
-
-    return thumbnailHash;
-  } catch (error) {
-    await fs.promises.unlink(thumbnailPath).catch(() => { });
-    throw error;
-  }
-}
-
-
-async function extractVideoThumbnail(videoPath, outputPath) {
-  return new Promise((resolve, reject) => {
-    const ffmpeg = spawn('ffmpeg', [  // Use 'ffmpeg' instead of ffmpegPath      '-i', videoPath,
-      '-ss', '00:00:01',    // Seek to 1 second
-      '-vframes', '1',       // Extract 1 frame
-      '-q:v', '2',          // High quality (1-31, lower = better)
-      '-y',                 // Overwrite output file
-      outputPath
-    ]);
-
-    let stderrData = '';
-
-    ffmpeg.stderr.on('data', (data) => {
-      stderrData += data.toString();
-    });
-
-    ffmpeg.on('close', (code) => {
-      if (code === 0) {
-        console.log(`✅ Frame extracted successfully: ${outputPath}`);
-        resolve(outputPath);
-      } else {
-        console.error(`❌ FFmpeg failed with code ${code}`);
-        console.error(`FFmpeg stderr: ${stderrData}`);
-        reject(new Error(`FFmpeg process exited with code ${code}`));
+    const thumbnailUrl = `https://graph.facebook.com/v21.0/${videoId}`;
+    const response = await axios.get(thumbnailUrl, {
+      params: {
+        access_token: token,
+        fields: 'thumbnails'
       }
     });
 
-    ffmpeg.on('error', (error) => {
-      console.error(`❌ FFmpeg spawn error:`, error);
-      reject(new Error(`Failed to start FFmpeg: ${error.message}`));
-    });
-  });
+    const thumbnails = response.data.thumbnails?.data;
+    if (thumbnails && thumbnails.length > 0) {
+      // Get the highest quality thumbnail (usually the last one)
+      const bestThumbnail = thumbnails[thumbnails.length - 1];
+      console.log(`✅ Meta thumbnail found: ${bestThumbnail.uri}`);
+      return bestThumbnail.uri;
+    } else {
+      console.warn(`⚠️ No thumbnails found for video ${videoId}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`❌ Failed to get Meta thumbnail for video ${videoId}:`, error.response?.data || error.message);
+    return null;
+  }
 }
 
 //google auth initialization
@@ -926,94 +884,6 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
 }
 
 
-
-// async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus) {
-//   const file = req.files.imageFile?.[0];
-//   if (!file) throw new Error('Video file is required');
-
-
-//   const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
-//   const videoFormData = new FormData();
-//   videoFormData.append('access_token', token);
-//   videoFormData.append('source', fs.createReadStream(file.path), {
-//     filename: file.originalname,
-//     contentType: file.mimetype
-//   });
-
-//   const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
-//     headers: videoFormData.getHeaders()
-//   });
-
-//   const videoId = videoUploadResponse.data.id;
-
-//   if (useDynamicCreative) {
-//     await waitForVideoProcessing(videoId, token);
-//   }
-
-//   // Handle thumbnail
-//   const thumbnailFile = req.files.thumbnail?.[0];
-
-
-//   let thumbnailHash = null;
-//   let thumbnailUrl = null;
-
-//   if (thumbnailFile) {
-//     const thumbFormData = new FormData();
-//     thumbFormData.append('access_token', token);
-//     thumbFormData.append('file', fs.createReadStream(thumbnailFile.path), {
-//       filename: thumbnailFile.originalname,
-//       contentType: thumbnailFile.mimetype
-//     });
-
-//     const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-//     const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
-//       headers: thumbFormData.getHeaders()
-//     });
-
-//     const imagesInfo = thumbUploadResponse.data.images;
-//     const key = Object.keys(imagesInfo)[0];
-//     thumbnailHash = imagesInfo[key].hash;
-
-//     await fs.promises.unlink(thumbnailFile.path).catch(err => console.error("Error deleting thumbnail file:", err));
-//   }
-
-//   else {
-//     thumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg";
-//   }
-
-//   const creativePayload = buildVideoCreativePayload({
-//     adName,
-//     adSetId,
-//     pageId,
-//     videoId,
-//     cta,
-//     link,
-//     headlines,
-//     messagesArray,
-//     descriptionsArray,
-//     thumbnailHash,
-//     thumbnailUrl,
-//     useDynamicCreative,
-//     instagramAccountId,
-//     urlTags,
-//     creativeEnhancements,
-//     shopDestination,
-//     shopDestinationType,
-//     adStatus
-//   });
-
-//   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
-//   const createAdResponse = await retryWithBackoff(() =>
-//     axios.post(createAdUrl, creativePayload, {
-//       params: { access_token: token }
-//     })
-//   );
-
-
-//   await fs.promises.unlink(file.path).catch(err => console.error("Error deleting video file:", err));
-//   return createAdResponse.data;
-// }
-
 async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus) {
   const file = req.files.imageFile?.[0];
   if (!file) throw new Error('Video file is required');
@@ -1046,44 +916,14 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     await waitForVideoProcessing(videoId, token);
   }
 
-  // 🔁 Handle thumbnail
-  // const thumbnailFile = req.files.thumbnail?.[0];
-  // let thumbnailHash = null;
-  // let thumbnailUrl = null;
 
-  // if (thumbnailFile) {
-  //   const thumbFormData = new FormData();
-  //   thumbFormData.append('access_token', token);
-  //   thumbFormData.append('file', fs.createReadStream(thumbnailFile.path), {
-  //     filename: thumbnailFile.originalname,
-  //     contentType: thumbnailFile.mimetype
-  //   });
-
-  //   const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-
-  //   try {
-  //     const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
-  //       headers: thumbFormData.getHeaders()
-  //     });
-
-  //     const imagesInfo = thumbUploadResponse.data.images;
-  //     const key = Object.keys(imagesInfo)[0];
-  //     thumbnailHash = imagesInfo[key].hash;
-  //     console.log("🖼️ Thumbnail uploaded. Hash:", thumbnailHash);
-
-  //     await fs.promises.unlink(thumbnailFile.path).catch(err => console.error("⚠️ Error deleting thumbnail file:", err));
-  //   } catch (err) {
-  //     console.error("❌ Failed to upload thumbnail:", err.response?.data || err.message);
-  //   }
-  // } else {
-  //   thumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg";
-  // }
-  // Handle thumbnail - REPLACE the existing thumbnail section with this:
+  // Replace the thumbnail handling section with this:
   const thumbnailFile = req.files.thumbnail?.[0];
   let thumbnailHash = null;
   let thumbnailUrl = null;
 
   if (thumbnailFile) {
+    // Use custom thumbnail if provided
     const thumbFormData = new FormData();
     thumbFormData.append('access_token', token);
     thumbFormData.append('file', fs.createReadStream(thumbnailFile.path), {
@@ -1108,16 +948,21 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
       console.error("❌ Failed to upload custom thumbnail:", err.response?.data || err.message);
     }
   } else {
-    // Extract first frame as thumbnail
+    // Use Meta-generated thumbnail
     try {
-      console.log("🎬 No custom thumbnail provided, extracting first frame...");
-      thumbnailHash = await uploadExtractedThumbnail(file.path, token, adAccountId);
-      console.log("✅ First frame extracted and uploaded. Hash:", thumbnailHash);
+      console.log("🎬 Getting Meta-generated thumbnail...");
+      thumbnailUrl = await getMetaVideoThumbnail(videoId, token);
+
+      if (thumbnailUrl) {
+        console.log("✅ Using Meta-generated thumbnail:", thumbnailUrl);
+      } else {
+        // Fallback to static URL
+        thumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg";
+        console.log("⚠️ Using fallback thumbnail URL");
+      }
     } catch (err) {
-      console.error("❌ Failed to extract video thumbnail:", err.message);
-      // Fallback to static URL only if extraction fails
+      console.error("❌ Failed to get Meta thumbnail:", err.message);
       thumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg";
-      console.log("⚠️ Using fallback thumbnail URL");
     }
   }
 
@@ -2228,17 +2073,32 @@ async function handleDynamicVideoAd(req, token, adAccountId, adSetId, pageId, ad
     const videoId = videoUploadResponse.data.id;
     await waitForVideoProcessing(videoId, token);
 
-    // 2. Extract thumbnail
-    const thumbnailHash = await uploadExtractedThumbnail(file.path, token, adAccountId);
-    // 4. Store video asset with thumbnail hash
+    // 2. Get Meta-generated thumbnail
+    let thumbnailSource = {};
+    try {
+      console.log(`🎬 Getting Meta-generated thumbnail for video...`);
+      const metaThumbnailUrl = await getMetaVideoThumbnail(videoId, token);
+
+      if (metaThumbnailUrl) {
+        thumbnailSource = { thumbnail_url: metaThumbnailUrl };
+        console.log(`✅ Using Meta thumbnail:`, metaThumbnailUrl);
+      } else {
+        thumbnailSource = { thumbnail_url: "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg" };
+        console.log(`⚠️ Using fallback thumbnail`);
+      }
+    } catch (err) {
+      console.error(`❌ Failed to get Meta thumbnail:`, err.message);
+      thumbnailSource = { thumbnail_url: "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg" };
+    }
+
+    // 3. Store video asset with thumbnail
     videoAssets.push({
       video_id: videoId,
-      thumbnail_hash: thumbnailHash
+      ...thumbnailSource
     });
 
-    // 5. Cleanup
+    // 4. Cleanup
     await fs.promises.unlink(file.path).catch(err => console.error("Error deleting video:", err));
-    await fs.promises.unlink(thumbnailPath).catch(err => console.error("Error deleting thumbnail:", err));
   }
 
   // Handle shop destination fields
