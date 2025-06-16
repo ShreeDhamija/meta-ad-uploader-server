@@ -38,7 +38,8 @@ app.options("*", cors({
   credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: true }));
 app.set('trust proxy', 1);
 app.use(express.static('public'));
 
@@ -144,7 +145,14 @@ const storage = multer.diskStorage({
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
-const upload = multer({ storage });
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 200 * 1024 * 1024,  // 100MB per file
+    //files: 10,                     // Max 10 files
+    //fieldSize: 10 * 1024 * 1024   // 10MB per field
+  }
+});
 
 // In-memory user storage (use a database in production)
 let userData = {};
