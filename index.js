@@ -24,7 +24,7 @@ const { RedisStore } = require('connect-redis');
 const crypto = require('crypto');
 const { google } = require('googleapis');
 const { spawn } = require('child_process');
-//const ffmpegPath = require('ffmpeg-static');
+const os = require('os'); // Add this import at the top
 
 app.use(cors({
   origin: [
@@ -126,24 +126,14 @@ async function retryWithBackoff(fn, maxAttempts = 3, initialDelay = 1000) {
   }
 }
 async function uploadExtractedThumbnail(videoPath, token, adAccountId) {
-  const uploadDir = path.join('/data', 'uploads');
-  const thumbnailPath = path.join(uploadDir, `thumb_${Date.now()}.jpg`);
+  const tempDir = os.tmpdir(); // Use system temp instead of /data/uploads
+  const thumbnailPath = path.join(tempDir, `thumb_${Date.now()}.jpg`);
 
   try {
-    // Ensure directory exists and is writable
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-      console.log(`📁 Created directory: ${uploadDir}`);
-    }
-
-    // Test write permissions
-    const testFile = path.join(uploadDir, 'test_write.tmp');
-    fs.writeFileSync(testFile, 'test');
-    fs.unlinkSync(testFile);
-    console.log(`✅ Directory is writable: ${uploadDir}`);
-
+    console.log(`🎬 Using temp directory: ${tempDir}`);
     await extractVideoThumbnail(videoPath, thumbnailPath);
 
+    // Rest of your upload code stays the same...
     const thumbFormData = new FormData();
     thumbFormData.append('access_token', token);
     thumbFormData.append('file', fs.createReadStream(thumbnailPath), {
@@ -160,50 +150,15 @@ async function uploadExtractedThumbnail(videoPath, token, adAccountId) {
     const key = Object.keys(imagesInfo)[0];
     const thumbnailHash = imagesInfo[key].hash;
 
-    // Clean up extracted thumbnail file
     await fs.promises.unlink(thumbnailPath).catch(err => console.error("⚠️ Error deleting extracted thumbnail:", err));
 
     return thumbnailHash;
   } catch (error) {
-    console.error("❌ uploadExtractedThumbnail error:", error.message);
-    // Clean up on error
     await fs.promises.unlink(thumbnailPath).catch(() => { });
     throw error;
   }
 }
-// async function uploadExtractedThumbnail(videoPath, token, adAccountId) {
-//   const uploadDir = path.join('/data', 'uploads');
-//   const thumbnailPath = path.join(uploadDir, `thumb_${Date.now()}.jpg`);
 
-//   try {
-//     await extractVideoThumbnail(videoPath, thumbnailPath);
-
-//     const thumbFormData = new FormData();
-//     thumbFormData.append('access_token', token);
-//     thumbFormData.append('file', fs.createReadStream(thumbnailPath), {
-//       filename: path.basename(thumbnailPath),
-//       contentType: 'image/jpeg'
-//     });
-
-//     const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-//     const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
-//       headers: thumbFormData.getHeaders()
-//     });
-
-//     const imagesInfo = thumbUploadResponse.data.images;
-//     const key = Object.keys(imagesInfo)[0];
-//     const thumbnailHash = imagesInfo[key].hash;
-
-//     // Clean up extracted thumbnail file
-//     await fs.promises.unlink(thumbnailPath).catch(err => console.error("⚠️ Error deleting extracted thumbnail:", err));
-
-//     return thumbnailHash;
-//   } catch (error) {
-//     // Clean up on error
-//     await fs.promises.unlink(thumbnailPath).catch(() => { });
-//     throw error;
-//   }
-// }
 
 async function extractVideoThumbnail(videoPath, outputPath) {
   return new Promise((resolve, reject) => {
