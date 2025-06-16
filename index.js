@@ -42,6 +42,9 @@ app.use(express.json({ limit: '200mb' }));
 app.use(express.urlencoded({ limit: '200mb', extended: true }));
 app.set('trust proxy', 1);
 app.use(express.static('public'));
+axios.defaults.maxContentLength = 200 * 1024 * 1024;
+axios.defaults.maxBodyLength = 200 * 1024 * 1024;
+axios.defaults.timeout = 120000;
 
 
 const STATIC_LOGIN = {
