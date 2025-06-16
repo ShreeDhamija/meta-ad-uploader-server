@@ -1,0 +1,9 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = true
+	ignorecase = true
+	precomposeunicode = true
+[remote "origin"]
+	url = https://ShreeDhamija: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@github.com/ShreeDhamija/meta-ad-uploader-server.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
