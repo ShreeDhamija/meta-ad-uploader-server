@@ -126,7 +126,7 @@ async function retryWithBackoff(fn, maxAttempts = 3, initialDelay = 1000) {
 }
 
 // Helper: Get Meta-generated thumbnail from video ID
-async function getMetaVideoThumbnail(videoId, token, maxRetries = 3) {
+async function getMetaVideoThumbnail(videoId, token, maxRetries = 5) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const { data } = await axios.get(`https://graph.facebook.com/v21.0/${videoId}`, {
@@ -150,7 +150,7 @@ async function getMetaVideoThumbnail(videoId, token, maxRetries = 3) {
         // If no thumbnails and not the last attempt, wait and retry
         if (attempt < maxRetries) {
           console.log(`🔄 Retrying in 2 seconds... (attempt ${attempt + 1}/${maxRetries})`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 4000));
           continue;
         }
 
