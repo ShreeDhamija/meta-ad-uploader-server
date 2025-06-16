@@ -126,29 +126,48 @@ async function retryWithBackoff(fn, maxAttempts = 3, initialDelay = 1000) {
 }
 
 // Helper: Get Meta-generated thumbnail from video ID
-async function getMetaVideoThumbnail(videoId, token) {
-  try {
-    const thumbnailUrl = `https://graph.facebook.com/v21.0/${videoId}`;
-    const response = await axios.get(thumbnailUrl, {
-      params: {
-        access_token: token,
-        fields: 'thumbnails'
-      }
-    });
+async function getMetaVideoThumbnail(videoId, token, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const { data } = await axios.get(`https://graph.facebook.com/v21.0/${videoId}`, {
+        params: {
+          access_token: token,
+          fields: 'thumbnails'
+        }
+      });
 
-    const thumbnails = response.data.thumbnails?.data;
-    if (thumbnails && thumbnails.length > 0) {
-      // Get the highest quality thumbnail (usually the last one)
-      const bestThumbnail = thumbnails[thumbnails.length - 1];
-      console.log(`✅ Meta thumbnail found: ${bestThumbnail.uri}`);
-      return bestThumbnail.uri;
-    } else {
-      console.warn(`⚠️ No thumbnails found for video ${videoId}`);
+      const thumbnails = data?.thumbnails?.data;
+
+      if (Array.isArray(thumbnails) && thumbnails.length > 0) {
+        const preferred = thumbnails.find(t => t.is_preferred);
+        const best = preferred || thumbnails[thumbnails.length - 1];
+
+        console.log(`✅ Thumbnail found on attempt ${attempt}: ${best.uri}`);
+        return best.uri;
+      } else {
+        console.warn(`⚠️ No thumbnails found for video ${videoId} on attempt ${attempt}`);
+
+        // If no thumbnails and not the last attempt, wait and retry
+        if (attempt < maxRetries) {
+          console.log(`🔄 Retrying in 2 seconds... (attempt ${attempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+
+        return null;
+      }
+    } catch (error) {
+      console.error(`❌ Failed to get Meta thumbnail for video ${videoId} on attempt ${attempt}:`, error.response?.data || error.message);
+
+      // If error and not the last attempt, wait and retry
+      if (attempt < maxRetries) {
+        console.log(`🔄 Retrying in 2 seconds... (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        continue;
+      }
+
       return null;
     }
-  } catch (error) {
-    console.error(`❌ Failed to get Meta thumbnail for video ${videoId}:`, error.response?.data || error.message);
-    return null;
   }
 }
 
