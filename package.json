@@ -7,7 +7,6 @@
     "express": "^4.21.2",
     "express-session": "^1.18.1",
     "facebook-nodejs-business-sdk": "^21.0.5",
-    "ffmpeg-static": "^5.2.0",
     "firebase-admin": "^13.2.0",
     "form-data": "^4.0.1",
     "FormData": "^0.10.1",

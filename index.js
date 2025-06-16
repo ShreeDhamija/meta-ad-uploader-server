@@ -24,7 +24,7 @@ const { RedisStore } = require('connect-redis');
 const crypto = require('crypto');
 const { google } = require('googleapis');
 const { spawn } = require('child_process');
-const ffmpegPath = require('ffmpeg-static');
+//const ffmpegPath = require('ffmpeg-static');
 
 app.use(cors({
   origin: [
@@ -162,8 +162,7 @@ async function uploadExtractedThumbnail(videoPath, token, adAccountId) {
 
 async function extractVideoThumbnail(videoPath, outputPath) {
   return new Promise((resolve, reject) => {
-    const ffmpeg = spawn(ffmpegPath, [  // Use ffmpegPath instead of 'ffmpeg'
-      '-i', videoPath,
+    const ffmpeg = spawn('ffmpeg', [  // Use 'ffmpeg' instead of ffmpegPath      '-i', videoPath,
       '-ss', '00:00:01',    // Seek to 1 second
       '-vframes', '1',       // Extract 1 frame
       '-q:v', '2',          // High quality (1-31, lower = better)
