@@ -857,9 +857,99 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
 
 
 
+// async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus) {
+//   const file = req.files.imageFile?.[0];
+//   if (!file) throw new Error('Video file is required');
+
+
+//   const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
+//   const videoFormData = new FormData();
+//   videoFormData.append('access_token', token);
+//   videoFormData.append('source', fs.createReadStream(file.path), {
+//     filename: file.originalname,
+//     contentType: file.mimetype
+//   });
+
+//   const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
+//     headers: videoFormData.getHeaders()
+//   });
+
+//   const videoId = videoUploadResponse.data.id;
+
+//   if (useDynamicCreative) {
+//     await waitForVideoProcessing(videoId, token);
+//   }
+
+//   // Handle thumbnail
+//   const thumbnailFile = req.files.thumbnail?.[0];
+
+
+//   let thumbnailHash = null;
+//   let thumbnailUrl = null;
+
+//   if (thumbnailFile) {
+//     const thumbFormData = new FormData();
+//     thumbFormData.append('access_token', token);
+//     thumbFormData.append('file', fs.createReadStream(thumbnailFile.path), {
+//       filename: thumbnailFile.originalname,
+//       contentType: thumbnailFile.mimetype
+//     });
+
+//     const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+//     const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
+//       headers: thumbFormData.getHeaders()
+//     });
+
+//     const imagesInfo = thumbUploadResponse.data.images;
+//     const key = Object.keys(imagesInfo)[0];
+//     thumbnailHash = imagesInfo[key].hash;
+
+//     await fs.promises.unlink(thumbnailFile.path).catch(err => console.error("Error deleting thumbnail file:", err));
+//   }
+
+//   else {
+//     thumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg";
+//   }
+
+//   const creativePayload = buildVideoCreativePayload({
+//     adName,
+//     adSetId,
+//     pageId,
+//     videoId,
+//     cta,
+//     link,
+//     headlines,
+//     messagesArray,
+//     descriptionsArray,
+//     thumbnailHash,
+//     thumbnailUrl,
+//     useDynamicCreative,
+//     instagramAccountId,
+//     urlTags,
+//     creativeEnhancements,
+//     shopDestination,
+//     shopDestinationType,
+//     adStatus
+//   });
+
+//   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+//   const createAdResponse = await retryWithBackoff(() =>
+//     axios.post(createAdUrl, creativePayload, {
+//       params: { access_token: token }
+//     })
+//   );
+
+
+//   await fs.promises.unlink(file.path).catch(err => console.error("Error deleting video file:", err));
+//   return createAdResponse.data;
+// }
+
 async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus) {
   const file = req.files.imageFile?.[0];
   if (!file) throw new Error('Video file is required');
+
+  console.log("📤 Uploading video to Meta...");
+  console.log(`🗂️ Video file "${file.originalname}": ${file.size} bytes`);
 
   const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
   const videoFormData = new FormData();
@@ -869,20 +959,25 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     contentType: file.mimetype
   });
 
-  const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
-    headers: videoFormData.getHeaders()
-  });
-
-  const videoId = videoUploadResponse.data.id;
+  let videoId;
+  try {
+    const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
+      headers: videoFormData.getHeaders()
+    });
+    videoId = videoUploadResponse.data.id;
+    console.log("✅ Video uploaded. Video ID:", videoId);
+  } catch (err) {
+    console.error("❌ Failed to upload video to Meta:", err.response?.data || err.message);
+    await fs.promises.unlink(file.path).catch(e => console.warn("⚠️ Failed to delete file after error:", e));
+    throw new Error("Video upload to Meta failed");
+  }
 
   if (useDynamicCreative) {
     await waitForVideoProcessing(videoId, token);
   }
 
-  // Handle thumbnail
+  // 🔁 Handle thumbnail
   const thumbnailFile = req.files.thumbnail?.[0];
-
-
   let thumbnailHash = null;
   let thumbnailUrl = null;
 
@@ -895,18 +990,22 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     });
 
     const thumbUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-    const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
-      headers: thumbFormData.getHeaders()
-    });
 
-    const imagesInfo = thumbUploadResponse.data.images;
-    const key = Object.keys(imagesInfo)[0];
-    thumbnailHash = imagesInfo[key].hash;
+    try {
+      const thumbUploadResponse = await axios.post(thumbUploadUrl, thumbFormData, {
+        headers: thumbFormData.getHeaders()
+      });
 
-    await fs.promises.unlink(thumbnailFile.path).catch(err => console.error("Error deleting thumbnail file:", err));
-  }
+      const imagesInfo = thumbUploadResponse.data.images;
+      const key = Object.keys(imagesInfo)[0];
+      thumbnailHash = imagesInfo[key].hash;
+      console.log("🖼️ Thumbnail uploaded. Hash:", thumbnailHash);
 
-  else {
+      await fs.promises.unlink(thumbnailFile.path).catch(err => console.error("⚠️ Error deleting thumbnail file:", err));
+    } catch (err) {
+      console.error("❌ Failed to upload thumbnail:", err.response?.data || err.message);
+    }
+  } else {
     thumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg";
   }
 
@@ -931,17 +1030,33 @@ async function handleVideoAd(req, token, adAccountId, adSetId, pageId, adName, c
     adStatus
   });
 
+  // 📏 Log payload size
+  const payloadSize = Buffer.byteLength(JSON.stringify(creativePayload), 'utf8');
+  console.log("🧾 Final ad payload size:", payloadSize, "bytes");
+
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
-  const createAdResponse = await retryWithBackoff(() =>
-    axios.post(createAdUrl, creativePayload, {
-      params: { access_token: token }
-    })
-  );
 
+  try {
+    console.log("📦 Creating ad via Meta API...");
+    const createAdResponse = await retryWithBackoff(() =>
+      axios.post(createAdUrl, creativePayload, {
+        params: { access_token: token },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
+      })
+    );
 
-  await fs.promises.unlink(file.path).catch(err => console.error("Error deleting video file:", err));
-  return createAdResponse.data;
+    console.log("✅ Ad created:", createAdResponse.data.id || createAdResponse.data);
+    return createAdResponse.data;
+  } catch (err) {
+    console.error("❌ Meta ad creation failed. Status:", err.response?.status);
+    console.error("🪵 Meta error body:", err.response?.data || err.message);
+    throw err;
+  } finally {
+    await fs.promises.unlink(file.path).catch(err => console.error("⚠️ Error deleting video file:", err));
+  }
 }
+
 
 
 
@@ -1198,8 +1313,32 @@ app.post(
       } else {
         // Non-dynamic creative: use the original single file fields.
         const file = req.files.imageFile && req.files.imageFile[0];
-        if (!file) return res.status(400).json({ error: 'No image file received' });
 
+        if (!file) return res.status(400).json({ error: 'No image file received' });
+        // Log request size CHECCKING FOR SIZE
+        console.log("📥 Incoming request size (Content-Length):", req.headers['content-length'], "bytes");
+
+        // Log uploaded file sizes
+        Object.entries(req.files || {}).forEach(([field, files]) => {
+          files.forEach(file => {
+            console.log(`🗂️ Uploaded file "${file.originalname}" [${field}]: ${file.size} bytes`);
+          });
+        });
+
+        // Log text payload sizes
+        const creativeSizeEstimate = Buffer.byteLength(JSON.stringify({
+          headlines,
+          descriptionsArray,
+          messagesArray
+        }), 'utf8');
+        console.log("🧾 Estimated creative text payload size:", creativeSizeEstimate, "bytes");
+
+        // Optional: early rejection check
+        const MAX_PAYLOAD_ESTIMATE = 5 * 1024 * 1024;
+        if (creativeSizeEstimate > MAX_PAYLOAD_ESTIMATE) {
+          return res.status(413).json({ error: "Creative payload too large before Meta call" });
+        }
+        //FINISH CHECK FOR SIZE
         if (file.mimetype.startsWith('video/')) {
           result = await handleVideoAd(
             req,
