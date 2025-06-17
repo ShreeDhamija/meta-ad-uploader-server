@@ -2156,7 +2156,6 @@ app.post('/auth/get-upload-url', async (req, res) => {
       Bucket: BUCKET_NAME,
       Key: uniqueFileName,
       ContentType: fileType,
-      ACL: 'public-read',  // ← Add this line
       ContentLength: fileSize,
       Metadata: {
         'uploaded-by': req.session.user.facebookId,
