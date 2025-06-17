@@ -1355,7 +1355,7 @@ app.post(
       // For dynamic ad creative, use the aggregated media fields.
       if (useDynamicCreative) {
         // Expect the aggregated files to be in req.files.mediaFiles
-        const mediaFiles = req.files.mediaFiles;
+        const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
         const hasS3Videos = s3VideoUrls.length > 0
 
         if (mediaFiles.length === 0 && !hasS3Videos) {
