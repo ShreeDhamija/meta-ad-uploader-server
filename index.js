@@ -23,7 +23,7 @@ const { createClient } = require('redis');
 const { RedisStore } = require('connect-redis');
 const crypto = require('crypto');
 const { google } = require('googleapis');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 app.use(cors({
@@ -2156,6 +2156,7 @@ app.post('/auth/get-upload-url', async (req, res) => {
       Bucket: BUCKET_NAME,
       Key: uniqueFileName,
       ContentType: fileType,
+      ACL: 'public-read',  // ← Add this line
       ContentLength: fileSize,
       Metadata: {
         'uploaded-by': req.session.user.facebookId,
