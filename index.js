@@ -303,7 +303,7 @@ app.get('/auth/callback', async (req, res) => {
         facebookId,
         name,
         email,
-        //picture,
+        picture,
         accessToken: longLivedToken
       });
 
