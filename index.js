@@ -2035,6 +2035,13 @@ app.get('/auth/google/list-files', async (req, res) => {
 // });
 app.post("/api/upload-from-drive", async (req, res) => {
   const { driveFileUrl, fileName, mimeType, accessToken, size } = req.body
+  console.log("📨 Incoming Drive file upload:", {
+    fileName,
+    mimeType,
+    size,
+    hasAccessToken: !!accessToken
+  });
+  console.log("🔍 Type of size:", typeof size);
 
   try {
     if (!accessToken) {
