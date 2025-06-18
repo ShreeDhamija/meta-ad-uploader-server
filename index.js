@@ -2000,6 +2000,41 @@ app.get('/auth/google/list-files', async (req, res) => {
   }
 });
 
+
+app.post("/api/upload-from-drive", async (req, res) => {
+  const { driveFileUrl, fileName, mimeType } = req.body;
+
+  try {
+    const accessToken = req.session.googleAccessToken;
+    if (!accessToken) throw new Error("Missing Google access token");
+
+    const driveRes = await axios.get(driveFileUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      responseType: "stream",
+    });
+
+    const s3Key = `videos/${Date.now()}-${fileName}`;
+    const uploadParams = {
+      Bucket: process.env.AWS_S3_BUCKET,
+      Key: s3Key,
+      Body: driveRes.data,
+      ContentType: mimeType,
+      ACL: "public-read",
+    };
+
+    await s3.upload(uploadParams).promise();
+    const s3Url = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${s3Key}`;
+
+    res.json({ s3Url });
+  } catch (err) {
+    console.error("❌ Failed to upload Drive file to S3:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // 6️⃣ Logout: clear session
 app.get('/auth/google/logout', (req, res) => {
   if (req.session.googleTokens) {
@@ -2262,9 +2297,10 @@ async function handleDynamicVideoAd(
       try {
         console.log(`🎬 Getting Meta-generated thumbnail for S3 video...`)
         const metaThumbnailUrl = await getMetaVideoThumbnail(videoId, token)
+        const safeUrl = (metaThumbnailUrl || "").trim().replace(/;$/, "");
         if (metaThumbnailUrl) {
           try {
-            const hash = await uploadThumbnailFromUrlToMeta(metaThumbnailUrl, adAccountId, token)
+            const hash = await uploadThumbnailFromUrlToMeta(safeUrl, adAccountId, token)
             thumbnailSource = { thumbnail_hash: hash }
             console.log(`✅ Using thumbnail hash from Meta. Hash:`, hash)
           } catch (uploadErr) {
@@ -2272,10 +2308,6 @@ async function handleDynamicVideoAd(
             thumbnailSource = { thumbnail_url: metaThumbnailUrl }
           }
         }
-        // if (metaThumbnailUrl) {
-        //   thumbnailSource = { thumbnail_url: metaThumbnailUrl }
-        //   console.log(`✅ Using Meta thumbnail:`, metaThumbnailUrl)
-        // } 
         else {
           thumbnailSource = { thumbnail_url: "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg" }
           console.log(`⚠️ Using fallback thumbnail`)
