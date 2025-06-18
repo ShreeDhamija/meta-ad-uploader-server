@@ -88,6 +88,7 @@ const s3Client = new S3Client({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
+  // requestChecksumCalculation: 'WHEN_REQUIRED',
 });
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME;
@@ -2067,6 +2068,9 @@ app.post("/api/upload-from-drive", async (req, res) => {
       Body: driveRes.data,
       ContentType: mimeType,
       ContentLength: size,// Keep this for consistency with your other uploads
+      requestChecksumCalculation: 'WHEN_REQUIRED'
+
+
     })
 
     // ✅ Use s3Client.send() instead of s3.upload().promise()
