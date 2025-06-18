@@ -1937,118 +1937,21 @@ app.get('/auth/google/callback', async (req, res) => {
 });
 
 
-
-// app.get('/auth/google/callback', async (req, res) => {
-//   const { code, state } = req.query;
-//   if (!code || !state) {
-//     return res.status(400).send("Missing code or state");
-
-//   }
-
-//   let decodedState;
-//   try {
-//     decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
-//   } catch (err) {
-//     return res.status(400).send("Invalid state encoding");
-//   }
-
-//   const isPopup = decodedState.mode === 'popup';
-//   const isValidCSRF = decodedState.csrf === req.session.googleCSRF;
-//   if (!isValidCSRF) {
-//     return res.status(400).send("Invalid OAuth state");
-//   }
-
-//   try {
-//     const { tokens } = await oauth2Client.getToken(code);
-//     oauth2Client.setCredentials(tokens);
-
-//     // ✅ Save the entire tokens object (for refresh functionality)
-//     req.session.googleTokens = tokens;
-
-//     // ✅ Also save the access token separately for convenience
-//     req.session.googleAccessToken = tokens.access_token;
-
-//     await new Promise((resolve, reject) => {
-//       req.session.save((err) => (err ? reject(err) : resolve()));
-//     });
-
-//     if (isPopup) {
-//       return res.send(`
-//         <html><body>
-//           <script>
-//             window.opener?.postMessage(
-//               { type: 'google-auth-success', accessToken: '${tokens.access_token}' },
-//               'https://www.withblip.com' // IMPORTANT: Use your actual frontend URL if different
-//             );
-//             window.close();
-//           </script>
-//         </body></html>
-//       `);
-//     } else {
-//       return res.redirect('https://www.withblip.com/?googleAuth=success'); // IMPORTANT: Use your actual frontend URL if different
-//     }
-//   } catch (err) {
-//     console.error("Google auth error:", err.message);
-//     if (isPopup) {
-//       return res.send(`
-//         <html><body>
-//           <script>
-//             window.opener?.postMessage({ type: 'google-auth-error' }, 'https://www.withblip.com');
-//             window.close();
-//           </script>
-//         </body></html>
-//       `);
-//     }
-//     return res.status(500).send("Authentication failed");
-//   }
-// });
-
-// // 3️⃣ Helper to ensure valid token
-// async function ensureValidGoogleToken(req) {
-//   if (!req.session.googleTokens) {
-//     throw new Error('No Google tokens found');
-//   }
-
-//   oauth2Client.setCredentials(req.session.googleTokens);
-
-//   try {
-//     const { token } = await oauth2Client.getAccessToken();
-//     return token;
-//   } catch (error) {
-//     throw new Error('Token refresh failed: ' + error.message);
-//   }
-// }
-
-
-
-app.post('/auth/google/save-token', (req, res) => {
-  // First, ensure the user is logged into your main application (e.g., via Facebook)
-  if (!req.session.user) {
-    return res.status(401).json({ error: 'User not authenticated with the main application' });
+// 3️⃣ Helper to ensure valid token
+async function ensureValidGoogleToken(req) {
+  if (!req.session.googleTokens) {
+    throw new Error('No Google tokens found');
   }
 
-  const { accessToken } = req.body;
-  if (!accessToken) {
-    return res.status(400).json({ error: 'Missing Google access token' });
+  oauth2Client.setCredentials(req.session.googleTokens);
+
+  try {
+    const { token } = await oauth2Client.getAccessToken();
+    return token;
+  } catch (error) {
+    throw new Error('Token refresh failed: ' + error.message);
   }
-
-  // Save the Google access token to the current user's session
-  req.session.googleAccessToken = accessToken;
-
-  // Note: The popup flow does not provide a refresh token.
-  // This token will be valid for about an hour. If long-term access is needed,
-  // the user would have to go through the full redirect flow.
-  // For the immediate upload, this is sufficient.
-
-  req.session.save((err) => {
-    if (err) {
-      console.error("❌ Failed to save Google token to session:", err);
-      return res.status(500).json({ error: 'Session save error' });
-    }
-    console.log("✅ Google access token from popup flow saved to session.");
-    res.json({ success: true });
-  });
-});
+}
 
 // 4️⃣ Endpoint to check if user is authenticated and get token
 app.get('/auth/google/status', async (req, res) => {
@@ -2098,83 +2001,36 @@ app.get('/auth/google/list-files', async (req, res) => {
 });
 
 
-// app.post("/api/upload-from-drive", async (req, res) => {
-//   const { driveFileUrl, fileName, mimeType } = req.body;
-
-//   try {
-//     const accessToken = req.session.googleAccessToken;
-//     if (!accessToken) throw new Error("Missing Google access token");
-
-//     const driveRes = await axios.get(driveFileUrl, {
-//       headers: {
-//         Authorization: `Bearer ${accessToken}`,
-//       },
-//       responseType: "stream",
-//     });
-
-//     const s3Key = `videos/${Date.now()}-${fileName}`;
-//     const uploadParams = {
-//       Bucket: process.env.AWS_S3_BUCKET,
-//       Key: s3Key,
-//       Body: driveRes.data,
-//       ContentType: mimeType,
-//       ACL: "public-read",
-//     };
-
-//     await s3.upload(uploadParams).promise();
-//     const s3Url = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${s3Key}`;
-
-//     res.json({ s3Url });
-//   } catch (err) {
-//     console.error("❌ Failed to upload Drive file to S3:", err.message);
-//     res.status(500).json({ error: err.message });
-//   }
-// });
-
-// The corrected implementation for your index.js
 app.post("/api/upload-from-drive", async (req, res) => {
   const { driveFileUrl, fileName, mimeType } = req.body;
-  const accessToken = req.session.googleAccessToken;
-
-  if (!accessToken) {
-    return res.status(401).json({ error: "User not authenticated with Google" });
-  }
-  if (!driveFileUrl || !fileName || !mimeType) {
-    return res.status(400).json({ error: "Missing Drive file information" });
-  }
 
   try {
-    console.log(`📥 Streaming file from Google Drive: ${fileName}`);
-    const driveResponseStream = await axios.get(driveFileUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    const accessToken = req.session.googleAccessToken;
+    if (!accessToken) throw new Error("Missing Google access token");
+
+    const driveRes = await axios.get(driveFileUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
       responseType: "stream",
     });
 
-    const s3Key = `videos/${Date.now()}-${fileName.replace(/\s/g, '_')}`;
-
-    // ✅ Use AWS SDK v3 Command syntax
-    const uploadCommand = new PutObjectCommand({
-      Bucket: BUCKET_NAME, // Use the BUCKET_NAME variable from your file
+    const s3Key = `videos/${Date.now()}-${fileName}`;
+    const uploadParams = {
+      Bucket: process.env.AWS_S3_BUCKET,
       Key: s3Key,
-      Body: driveResponseStream.data,
+      Body: driveRes.data,
       ContentType: mimeType,
-      // Note: ACL is often disabled on new S3 buckets. If this fails,
-      // remove this line and set permissions via a bucket policy.
-      // ACL: "public-read", 
-    });
+      ACL: "public-read",
+    };
 
-    // ✅ Use the v3 client to send the command
-    await s3Client.send(uploadCommand);
+    await s3.upload(uploadParams).promise();
+    const s3Url = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${s3Key}`;
 
-    const s3Url = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
-
-    console.log(`✅ Successfully uploaded Drive file to S3: ${s3Url}`);
     res.json({ s3Url });
-
   } catch (err) {
-    const errorMessage = err.response?.data?.error?.message || err.message;
-    console.error(`❌ Failed to upload Drive file to S3:`, errorMessage);
-    res.status(500).json({ error: `Failed to transfer file from Drive to S3: ${errorMessage}` });
+    console.error("❌ Failed to upload Drive file to S3:", err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
