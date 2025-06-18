@@ -1885,66 +1885,13 @@ app.get('/auth/google', (req, res) => {
 
 
 
-app.get('/auth/google/callback', async (req, res) => {
-  const { code, state } = req.query;
-  if (!code || !state) {
-    return res.status(400).send("Missing code or state");
-  }
-
-  // 🔐 Validate the state parameter (anti-CSRF + popup mode)
-  let decodedState;
-  try {
-    decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
-  } catch (err) {
-    return res.status(400).send("Invalid state encoding");
-  }
-
-  const isPopup = decodedState.mode === 'popup';
-  const isValidCSRF = decodedState.csrf === req.session.googleCSRF;
-  if (!isValidCSRF) {
-    return res.status(400).send("Invalid OAuth state");
-  }
-
-  try {
-    const { tokens } = await oauth2Client.getToken(code);
-    oauth2Client.setCredentials(tokens);
-    const accessToken = tokens.access_token;
-
-    req.session.googleAccessToken = accessToken;
-    await new Promise((resolve, reject) => {
-      req.session.save((err) => (err ? reject(err) : resolve()));
-    });
-
-    if (isPopup) {
-      return res.send(`
-        <html><body>
-          <script>
-            window.opener?.postMessage(
-              { type: 'google-auth-success', accessToken: '${accessToken}' },
-              'https://www.withblip.com'
-            );
-            window.close();
-          </script>
-        </body></html>
-      `);
-    } else {
-      return res.redirect('https://www.withblip.com/?googleAuth=success');
-    }
-  } catch (err) {
-    console.error("Google auth error:", err);
-    return res.status(500).send("Authentication failed");
-  }
-});
-
-
-
 // app.get('/auth/google/callback', async (req, res) => {
 //   const { code, state } = req.query;
 //   if (!code || !state) {
 //     return res.status(400).send("Missing code or state");
-
 //   }
 
+//   // 🔐 Validate the state parameter (anti-CSRF + popup mode)
 //   let decodedState;
 //   try {
 //     decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
@@ -1961,13 +1908,9 @@ app.get('/auth/google/callback', async (req, res) => {
 //   try {
 //     const { tokens } = await oauth2Client.getToken(code);
 //     oauth2Client.setCredentials(tokens);
+//     const accessToken = tokens.access_token;
 
-//     // ✅ Save the entire tokens object (for refresh functionality)
-//     req.session.googleTokens = tokens;
-
-//     // ✅ Also save the access token separately for convenience
-//     req.session.googleAccessToken = tokens.access_token;
-
+//     req.session.googleAccessToken = accessToken;
 //     await new Promise((resolve, reject) => {
 //       req.session.save((err) => (err ? reject(err) : resolve()));
 //     });
@@ -1977,31 +1920,88 @@ app.get('/auth/google/callback', async (req, res) => {
 //         <html><body>
 //           <script>
 //             window.opener?.postMessage(
-//               { type: 'google-auth-success', accessToken: '${tokens.access_token}' },
-//               'https://www.withblip.com' // IMPORTANT: Use your actual frontend URL if different
+//               { type: 'google-auth-success', accessToken: '${accessToken}' },
+//               'https://www.withblip.com'
 //             );
 //             window.close();
 //           </script>
 //         </body></html>
 //       `);
 //     } else {
-//       return res.redirect('https://www.withblip.com/?googleAuth=success'); // IMPORTANT: Use your actual frontend URL if different
+//       return res.redirect('https://www.withblip.com/?googleAuth=success');
 //     }
 //   } catch (err) {
-//     console.error("Google auth error:", err.message);
-//     if (isPopup) {
-//       return res.send(`
-//         <html><body>
-//           <script>
-//             window.opener?.postMessage({ type: 'google-auth-error' }, 'https://www.withblip.com');
-//             window.close();
-//           </script>
-//         </body></html>
-//       `);
-//     }
+//     console.error("Google auth error:", err);
 //     return res.status(500).send("Authentication failed");
 //   }
 // });
+
+
+
+app.get('/auth/google/callback', async (req, res) => {
+  const { code, state } = req.query;
+  if (!code || !state) {
+    return res.status(400).send("Missing code or state");
+
+  }
+
+  let decodedState;
+  try {
+    decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
+  } catch (err) {
+    return res.status(400).send("Invalid state encoding");
+  }
+
+  const isPopup = decodedState.mode === 'popup';
+  const isValidCSRF = decodedState.csrf === req.session.googleCSRF;
+  if (!isValidCSRF) {
+    return res.status(400).send("Invalid OAuth state");
+  }
+
+  try {
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+
+    // ✅ Save the entire tokens object (for refresh functionality)
+    req.session.googleTokens = tokens;
+
+    // ✅ Also save the access token separately for convenience
+    req.session.googleAccessToken = tokens.access_token;
+
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => (err ? reject(err) : resolve()));
+    });
+
+    if (isPopup) {
+      return res.send(`
+        <html><body>
+          <script>
+            window.opener?.postMessage(
+              { type: 'google-auth-success', accessToken: '${tokens.access_token}' },
+              'https://www.withblip.com' // IMPORTANT: Use your actual frontend URL if different
+            );
+            window.close();
+          </script>
+        </body></html>
+      `);
+    } else {
+      return res.redirect('https://www.withblip.com/?googleAuth=success'); // IMPORTANT: Use your actual frontend URL if different
+    }
+  } catch (err) {
+    console.error("Google auth error:", err.message);
+    if (isPopup) {
+      return res.send(`
+        <html><body>
+          <script>
+            window.opener?.postMessage({ type: 'google-auth-error' }, 'https://www.withblip.com');
+            window.close();
+          </script>
+        </body></html>
+      `);
+    }
+    return res.status(500).send("Authentication failed");
+  }
+});
 
 // 3️⃣ Helper to ensure valid token
 async function ensureValidGoogleToken(req) {
