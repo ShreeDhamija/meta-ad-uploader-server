@@ -2002,10 +2002,10 @@ app.get('/auth/google/list-files', async (req, res) => {
 
 
 app.post("/api/upload-from-drive", async (req, res) => {
-  const { driveFileUrl, fileName, mimeType } = req.body;
+  const { driveFileUrl, fileName, mimeType, accessToken } = req.body;
 
   try {
-    const accessToken = req.session.googleAccessToken;
+    //const accessToken = req.session.googleAccessToken;
     if (!accessToken) throw new Error("Missing Google access token");
 
     const driveRes = await axios.get(driveFileUrl, {
@@ -2017,7 +2017,7 @@ app.post("/api/upload-from-drive", async (req, res) => {
 
     const s3Key = `videos/${Date.now()}-${fileName}`;
     const uploadParams = {
-      Bucket: process.env.AWS_S3_BUCKET,
+      Bucket: process.env.S3_BUCKET,
       Key: s3Key,
       Body: driveRes.data,
       ContentType: mimeType,
