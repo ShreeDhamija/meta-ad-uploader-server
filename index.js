@@ -2001,36 +2001,83 @@ app.get('/auth/google/list-files', async (req, res) => {
 });
 
 
+// app.post("/api/upload-from-drive", async (req, res) => {
+//   const { driveFileUrl, fileName, mimeType } = req.body;
+
+//   try {
+//     const accessToken = req.session.googleAccessToken;
+//     if (!accessToken) throw new Error("Missing Google access token");
+
+//     const driveRes = await axios.get(driveFileUrl, {
+//       headers: {
+//         Authorization: `Bearer ${accessToken}`,
+//       },
+//       responseType: "stream",
+//     });
+
+//     const s3Key = `videos/${Date.now()}-${fileName}`;
+//     const uploadParams = {
+//       Bucket: process.env.AWS_S3_BUCKET,
+//       Key: s3Key,
+//       Body: driveRes.data,
+//       ContentType: mimeType,
+//       ACL: "public-read",
+//     };
+
+//     await s3.upload(uploadParams).promise();
+//     const s3Url = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${s3Key}`;
+
+//     res.json({ s3Url });
+//   } catch (err) {
+//     console.error("❌ Failed to upload Drive file to S3:", err.message);
+//     res.status(500).json({ error: err.message });
+//   }
+// });
+
+// The corrected implementation for your index.js
 app.post("/api/upload-from-drive", async (req, res) => {
   const { driveFileUrl, fileName, mimeType } = req.body;
+  const accessToken = req.session.googleAccessToken;
+
+  if (!accessToken) {
+    return res.status(401).json({ error: "User not authenticated with Google" });
+  }
+  if (!driveFileUrl || !fileName || !mimeType) {
+    return res.status(400).json({ error: "Missing Drive file information" });
+  }
 
   try {
-    const accessToken = req.session.googleAccessToken;
-    if (!accessToken) throw new Error("Missing Google access token");
-
-    const driveRes = await axios.get(driveFileUrl, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+    console.log(`📥 Streaming file from Google Drive: ${fileName}`);
+    const driveResponseStream = await axios.get(driveFileUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
       responseType: "stream",
     });
 
-    const s3Key = `videos/${Date.now()}-${fileName}`;
-    const uploadParams = {
-      Bucket: process.env.AWS_S3_BUCKET,
+    const s3Key = `videos/${Date.now()}-${fileName.replace(/\s/g, '_')}`;
+
+    // ✅ Use AWS SDK v3 Command syntax
+    const uploadCommand = new PutObjectCommand({
+      Bucket: BUCKET_NAME, // Use the BUCKET_NAME variable from your file
       Key: s3Key,
-      Body: driveRes.data,
+      Body: driveResponseStream.data,
       ContentType: mimeType,
-      ACL: "public-read",
-    };
+      // Note: ACL is often disabled on new S3 buckets. If this fails,
+      // remove this line and set permissions via a bucket policy.
+      // ACL: "public-read", 
+    });
 
-    await s3.upload(uploadParams).promise();
-    const s3Url = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${s3Key}`;
+    // ✅ Use the v3 client to send the command
+    await s3Client.send(uploadCommand);
 
+    const s3Url = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+
+    console.log(`✅ Successfully uploaded Drive file to S3: ${s3Url}`);
     res.json({ s3Url });
+
   } catch (err) {
-    console.error("❌ Failed to upload Drive file to S3:", err.message);
-    res.status(500).json({ error: err.message });
+    const errorMessage = err.response?.data?.error?.message || err.message;
+    console.error(`❌ Failed to upload Drive file to S3:`, errorMessage);
+    res.status(500).json({ error: `Failed to transfer file from Drive to S3: ${errorMessage}` });
   }
 });
 
