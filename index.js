@@ -2034,7 +2034,7 @@ app.get('/auth/google/list-files', async (req, res) => {
 //   }
 // });
 app.post("/api/upload-from-drive", async (req, res) => {
-  const { driveFileUrl, fileName, mimeType, accessToken } = req.body
+  const { driveFileUrl, fileName, mimeType, accessToken, size } = req.body
 
   try {
     if (!accessToken) {
@@ -2050,7 +2050,8 @@ app.post("/api/upload-from-drive", async (req, res) => {
       responseType: "stream",
     })
 
-    const s3Key = `videos/${Date.now()}-${fileName}`
+    const s3Key = `videos/${Date.now()}-${uuidv4()}-${fileName}`;
+
 
     // ✅ Use AWS SDK v3 syntax with PutObjectCommand
     const uploadCommand = new PutObjectCommand({
@@ -2058,7 +2059,8 @@ app.post("/api/upload-from-drive", async (req, res) => {
       Key: s3Key,
       Body: driveRes.data,
       ContentType: mimeType,
-      ACL: "public-read", // Keep this for consistency with your other uploads
+      ACL: "public-read",
+      ContentLength: size,// Keep this for consistency with your other uploads
     })
 
     // ✅ Use s3Client.send() instead of s3.upload().promise()
