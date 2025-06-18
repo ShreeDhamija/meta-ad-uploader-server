@@ -2066,7 +2066,6 @@ app.post("/api/upload-from-drive", async (req, res) => {
       Key: s3Key,
       Body: driveRes.data,
       ContentType: mimeType,
-      ACL: "public-read",
       ContentLength: size,// Keep this for consistency with your other uploads
     })
 
