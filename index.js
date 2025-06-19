@@ -1338,9 +1338,17 @@ app.post(
       }
 
       // Handle single Google Drive file for REGULAR ad sets (preserve original logic)
-      if (!useDynamicCreative && req.body.driveFile === 'true' && req.body.driveId && req.body.driveAccessToken) {
+      // if (!useDynamicCreative && req.body.driveFile === 'true' && req.body.driveId && req.body.driveAccessToken) {
+      if (!useDynamicCreative && req.body.driveFile === 'true') {
         try {
           console.log(`Processing single drive file for regular ad set: ${req.body.driveName}`);
+
+          if (!req.session.googleTokens) {
+            throw new Error("User not authenticated with Google for Drive download.");
+          }
+          oauth2Client.setCredentials(req.session.googleTokens);
+          const { token: driveAccessToken } = await oauth2Client.getAccessToken(); // Get fresh token
+          if (!driveAccessToken) throw new Error("Could not retrieve valid Google access token for Drive download");
 
           const fileRes = await axios({
             url: `https://www.googleapis.com/drive/v3/files/${req.body.driveId}?alt=media`,
@@ -1909,8 +1917,8 @@ app.get('/auth/google/callback', async (req, res) => {
   try {
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
-    const accessToken = tokens.access_token;
-
+    //const accessToken = tokens.access_token;
+    req.session.googleTokens = tokens;
     req.session.googleAccessToken = accessToken;
     await new Promise((resolve, reject) => {
       req.session.save((err) => (err ? reject(err) : resolve()));
@@ -1921,7 +1929,7 @@ app.get('/auth/google/callback', async (req, res) => {
         <html><body>
           <script>
             window.opener?.postMessage(
-              { type: 'google-auth-success', accessToken: '${accessToken}' },
+              { type: 'google-auth-success'},
               'https://www.withblip.com'
             );
             window.close();
@@ -1955,29 +1963,67 @@ async function ensureValidGoogleToken(req) {
 }
 
 // 4️⃣ Endpoint to check if user is authenticated and get token
+// app.get('/auth/google/status', async (req, res) => {
+//   const accessToken = req.session.googleAccessToken;
+//   const refreshToken = req.session.googleRefreshToken;
+
+//   if (accessToken) {
+//     return res.json({ authenticated: true, accessToken });
+//   }
+
+//   if (refreshToken) {
+//     try {
+//       oauth2Client.setCredentials({ refresh_token: refreshToken });
+//       const { credentials } = await oauth2Client.refreshAccessToken();
+//       req.session.googleAccessToken = credentials.access_token;
+//       await new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
+
+//       return res.json({ authenticated: true, accessToken: credentials.access_token });
+//     } catch (err) {
+//       console.error("Failed to refresh access token:", err);
+//       return res.json({ authenticated: false });
+//     }
+//   }
+
+//   return res.json({ authenticated: false });
+// });
+
+// in index.js
+
 app.get('/auth/google/status', async (req, res) => {
-  const accessToken = req.session.googleAccessToken;
-  const refreshToken = req.session.googleRefreshToken;
-
-  if (accessToken) {
-    return res.json({ authenticated: true, accessToken });
+  // 1. Check if we have any tokens in the session at all.
+  if (!req.session.googleTokens) {
+    return res.json({ authenticated: false, accessToken: null });
   }
 
-  if (refreshToken) {
-    try {
-      oauth2Client.setCredentials({ refresh_token: refreshToken });
-      const { credentials } = await oauth2Client.refreshAccessToken();
-      req.session.googleAccessToken = credentials.access_token;
+  // 2. Load the stored tokens into the client.
+  oauth2Client.setCredentials(req.session.googleTokens);
+
+  try {
+    // 3. Let the library handle refreshing. This is the magic.
+    // .getAccessToken() will automatically use the refresh_token if needed.
+    const { token, res: response } = await oauth2Client.getAccessToken();
+
+    // 4. If a new token was fetched, the response will contain it. Update the session.
+    if (response?.data) {
+      console.log('✅ Google token was refreshed.');
+      req.session.googleTokens = {
+        ...req.session.googleTokens, // Keep the original refresh_token
+        ...response.data
+      };
       await new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
-
-      return res.json({ authenticated: true, accessToken: credentials.access_token });
-    } catch (err) {
-      console.error("Failed to refresh access token:", err);
-      return res.json({ authenticated: false });
     }
-  }
 
-  return res.json({ authenticated: false });
+    // 5. Return a valid access token.
+    return res.json({ authenticated: true, accessToken: token });
+
+  } catch (error) {
+    console.error('Failed to refresh/get Google access token:', error.message);
+    // If refresh fails (e.g., user revoked access), clear the invalid tokens.
+    delete req.session.googleTokens;
+    await new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
+    return res.json({ authenticated: false, accessToken: null });
+  }
 });
 
 
@@ -2002,40 +2048,8 @@ app.get('/auth/google/list-files', async (req, res) => {
 });
 
 
-// app.post("/api/upload-from-drive", async (req, res) => {
-//   const { driveFileUrl, fileName, mimeType, accessToken } = req.body;
-
-//   try {
-//     //const accessToken = req.session.googleAccessToken;
-//     if (!accessToken) throw new Error("Missing Google access token");
-
-//     const driveRes = await axios.get(driveFileUrl, {
-//       headers: {
-//         Authorization: `Bearer ${accessToken}`,
-//       },
-//       responseType: "stream",
-//     });
-
-//     const s3Key = `videos/${Date.now()}-${fileName}`;
-//     const uploadParams = {
-//       Bucket: process.env.S3_BUCKET,
-//       Key: s3Key,
-//       Body: driveRes.data,
-//       ContentType: mimeType,
-//       ACL: "public-read",
-//     };
-
-//     await s3.upload(uploadParams).promise();
-//     const s3Url = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${s3Key}`;
-
-//     res.json({ s3Url });
-//   } catch (err) {
-//     console.error("❌ Failed to upload Drive file to S3:", err.message);
-//     res.status(500).json({ error: err.message });
-//   }
-// });
 app.post("/api/upload-from-drive", async (req, res) => {
-  const { driveFileUrl, fileName, mimeType, accessToken, size } = req.body
+  const { driveFileUrl, fileName, mimeType, size } = req.body
   console.log("📨 Incoming Drive file upload:", {
     fileName,
     mimeType,
@@ -2045,9 +2059,12 @@ app.post("/api/upload-from-drive", async (req, res) => {
   console.log("🔍 Type of size:", typeof size);
 
   try {
-    if (!accessToken) {
-      throw new Error("Missing Google access token")
+    if (!req.session.googleTokens) {
+      throw new Error("User not authenticated with Google.");
     }
+    oauth2Client.setCredentials(req.session.googleTokens);
+    const { token: accessToken } = await oauth2Client.getAccessToken();
+    if (!accessToken) throw new Error("Could not retrieve valid Google access token");
 
     console.log("📥 Downloading file from Google Drive:", fileName)
 
