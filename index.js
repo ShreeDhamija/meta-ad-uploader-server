@@ -1919,7 +1919,7 @@ app.get('/auth/google/callback', async (req, res) => {
     oauth2Client.setCredentials(tokens);
     //const accessToken = tokens.access_token;
     req.session.googleTokens = tokens;
-    req.session.googleAccessToken = accessToken;
+    //req.session.googleAccessToken = accessToken;
     await new Promise((resolve, reject) => {
       req.session.save((err) => (err ? reject(err) : resolve()));
     });
