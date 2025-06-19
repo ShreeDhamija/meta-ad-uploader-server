@@ -1947,20 +1947,7 @@ app.get('/auth/google/callback', async (req, res) => {
 
 
 // 3️⃣ Helper to ensure valid token
-async function ensureValidGoogleToken(req) {
-  if (!req.session.googleTokens) {
-    throw new Error('No Google tokens found');
-  }
 
-  oauth2Client.setCredentials(req.session.googleTokens);
-
-  try {
-    const { token } = await oauth2Client.getAccessToken();
-    return token;
-  } catch (error) {
-    throw new Error('Token refresh failed: ' + error.message);
-  }
-}
 
 // 4️⃣ Endpoint to check if user is authenticated and get token
 // app.get('/auth/google/status', async (req, res) => {
@@ -2028,12 +2015,29 @@ app.get('/auth/google/status', async (req, res) => {
 
 
 // 5️⃣ Example: List Google Drive files
+// in index.js
+
+// ✅ CORRECTED AND FINAL VERSION
 app.get('/auth/google/list-files', async (req, res) => {
   try {
-    const accessToken = await ensureValidGoogleToken(req);
+    // 1. Check for the session token object.
+    if (!req.session.googleTokens) {
+      return res.status(401).json({ error: "Not authenticated with Google. Please log in." });
+    }
 
+    // 2. Load the stored tokens into the OAuth2 client instance.
+    oauth2Client.setCredentials(req.session.googleTokens);
+
+    // 3. Get a guaranteed-fresh token. The library handles the refresh logic.
+    const { token } = await oauth2Client.getAccessToken();
+    if (!token) {
+      throw new Error('Failed to retrieve a valid Google access token.');
+    }
+
+    // 4. Initialize the Drive service with the now-authenticated client.
     const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
+    // 5. Make the API call.
     const response = await drive.files.list({
       pageSize: 30,
       fields: 'files(id, name, mimeType, thumbnailLink)',
@@ -2043,22 +2047,24 @@ app.get('/auth/google/list-files', async (req, res) => {
     return res.json({ files: response.data.files });
   } catch (error) {
     console.error('Google Drive list files error:', error.message);
-    return res.status(500).json({ error: 'Failed to list files' });
+    return res.status(500).json({ error: 'Failed to list files from Google Drive.' });
   }
 });
 
 
 app.post("/api/upload-from-drive", async (req, res) => {
-  const { driveFileUrl, fileName, mimeType, size } = req.body
+  const { driveFileUrl, fileName, mimeType, size } = req.body;
+
+  // ✅ CORRECTED: Removed the reference to the non-existent 'accessToken'
   console.log("📨 Incoming Drive file upload:", {
     fileName,
     mimeType,
     size,
-    hasAccessToken: !!accessToken
   });
   console.log("🔍 Type of size:", typeof size);
 
   try {
+    // This part of the logic is already correct and robust
     if (!req.session.googleTokens) {
       throw new Error("User not authenticated with Google.");
     }
@@ -2066,42 +2072,36 @@ app.post("/api/upload-from-drive", async (req, res) => {
     const { token: accessToken } = await oauth2Client.getAccessToken();
     if (!accessToken) throw new Error("Could not retrieve valid Google access token");
 
-    console.log("📥 Downloading file from Google Drive:", fileName)
+    console.log("📥 Downloading file from Google Drive:", fileName);
 
     const driveRes = await axios.get(driveFileUrl, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
       responseType: "stream",
-    })
+    });
 
     const s3Key = `videos/${Date.now()}-${uuidv4()}-${fileName}`;
 
-
-    // ✅ Use AWS SDK v3 syntax with PutObjectCommand
     const uploadCommand = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: s3Key,
       Body: driveRes.data,
       ContentType: mimeType,
-      ContentLength: size,// Keep this for consistency with your other uploads
+      ContentLength: size,
+    });
 
+    await s3Client.send(uploadCommand);
 
+    const s3Url = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
 
-    })
-
-    // ✅ Use s3Client.send() instead of s3.upload().promise()
-    await s3Client.send(uploadCommand)
-
-    const s3Url = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`
-
-    console.log("✅ Successfully uploaded to S3:", s3Url)
-    res.json({ s3Url })
+    console.log("✅ Successfully uploaded to S3:", s3Url);
+    res.json({ s3Url });
   } catch (err) {
-    console.error("❌ Failed to upload Drive file to S3:", err.message)
-    res.status(500).json({ error: err.message })
+    console.error("❌ Failed to upload Drive file to S3:", err.message);
+    res.status(500).json({ error: err.message });
   }
-})
+});
 
 
 // 6️⃣ Logout: clear session
