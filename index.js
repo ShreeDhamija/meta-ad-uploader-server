@@ -1354,7 +1354,7 @@ app.post(
             url: `https://www.googleapis.com/drive/v3/files/${req.body.driveId}?alt=media`,
             method: 'GET',
             responseType: 'stream',
-            headers: { Authorization: `Bearer ${req.body.driveAccessToken}` },
+            headers: { Authorization: `Bearer ${driveAccessToken}` },
           });
 
           const tempDir = path.resolve(__dirname, 'tmp');
