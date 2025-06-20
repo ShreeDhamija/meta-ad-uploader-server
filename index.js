@@ -2264,13 +2264,30 @@ async function handleDynamicVideoAd(
       // 2. Get Meta-generated thumbnail
       let thumbnailSource = {}
       try {
-        console.log(`🎬 Getting Meta-generated thumbnail for video...`)
+        // console.log(`🎬 Getting Meta-generated thumbnail for video...`)
+        // const metaThumbnailUrl = await getMetaVideoThumbnail(videoId, token)
+        // const safeUrl = (metaThumbnailUrl || "").trim().replace(/;$/, "");
+        // if (metaThumbnailUrl) {
+        //   thumbnailSource = { thumbnail_url: metaThumbnailUrl }
+        //   console.log(`✅ Using Meta thumbnail:`, metaThumbnailUrl)
+        // } else {
+        //   thumbnailSource = { thumbnail_url: "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg" }
+        //   console.log(`⚠️ Using fallback thumbnail`)
+        // }
+        console.log(`🎬 Getting Meta-generated thumbnail for S3 video...`)
         const metaThumbnailUrl = await getMetaVideoThumbnail(videoId, token)
-
+        const safeUrl = (metaThumbnailUrl || "").trim().replace(/;$/, "");
         if (metaThumbnailUrl) {
-          thumbnailSource = { thumbnail_url: metaThumbnailUrl }
-          console.log(`✅ Using Meta thumbnail:`, metaThumbnailUrl)
-        } else {
+          try {
+            const hash = await uploadThumbnailFromUrlToMeta(safeUrl, adAccountId, token)
+            thumbnailSource = { thumbnail_hash: hash }
+            console.log(`✅ Using thumbnail hash from Meta. Hash:`, hash)
+          } catch (uploadErr) {
+            console.warn(`⚠️ Failed to upload thumbnail to adimages, falling back to URL`, uploadErr.message)
+            thumbnailSource = { thumbnail_url: metaThumbnailUrl }
+          }
+        }
+        else {
           thumbnailSource = { thumbnail_url: "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg" }
           console.log(`⚠️ Using fallback thumbnail`)
         }
