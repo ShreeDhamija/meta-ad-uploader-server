@@ -1197,7 +1197,6 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     shopDestinationType,
     adStatus
   });
-  console.dir(creativePayload, { depth: null, colors: true });
   console.log(creativePayload);
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await retryWithBackoff(() =>
