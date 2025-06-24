@@ -1885,14 +1885,12 @@ app.get('/auth/google', (req, res) => {
 });
 
 
-
 app.get('/auth/google/callback', async (req, res) => {
   const { code, state } = req.query;
   if (!code || !state) {
     return res.status(400).send("Missing code or state");
   }
 
-  // 🔐 Validate the state parameter (anti-CSRF + popup mode)
   let decodedState;
   try {
     decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
@@ -1908,26 +1906,27 @@ app.get('/auth/google/callback', async (req, res) => {
 
   try {
     const { tokens } = await oauth2Client.getToken(code);
+    req.session.googleTokens = tokens;  // Store BOTH tokens
     oauth2Client.setCredentials(tokens);
-    const accessToken = tokens.access_token;
 
-    req.session.googleAccessToken = accessToken;
     await new Promise((resolve, reject) => {
       req.session.save((err) => (err ? reject(err) : resolve()));
     });
 
+    const accessToken = tokens.access_token;
+
     if (isPopup) {
       return res.send(`
-        <html><body>
-          <script>
-            window.opener?.postMessage(
-              { type: 'google-auth-success', accessToken: '${accessToken}' },
-              'https://www.withblip.com'
-            );
-            window.close();
-          </script>
-        </body></html>
-      `);
+              <html><body>
+                  <script>
+                      window.opener?.postMessage(
+                          { type: 'google-auth-success', accessToken: '${accessToken}' },
+                          'https://www.withblip.com'
+                      );
+                      window.close();
+                  </script>
+              </body></html>
+          `);
     } else {
       return res.redirect('https://www.withblip.com/?googleAuth=success');
     }
@@ -1937,47 +1936,130 @@ app.get('/auth/google/callback', async (req, res) => {
   }
 });
 
+// app.get('/auth/google/callback', async (req, res) => {
+//   const { code, state } = req.query;
+//   if (!code || !state) {
+//     return res.status(400).send("Missing code or state");
+//   }
+
+//   // 🔐 Validate the state parameter (anti-CSRF + popup mode)
+//   let decodedState;
+//   try {
+//     decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
+//   } catch (err) {
+//     return res.status(400).send("Invalid state encoding");
+//   }
+
+//   const isPopup = decodedState.mode === 'popup';
+//   const isValidCSRF = decodedState.csrf === req.session.googleCSRF;
+//   if (!isValidCSRF) {
+//     return res.status(400).send("Invalid OAuth state");
+//   }
+
+//   try {
+//     const { tokens } = await oauth2Client.getToken(code);
+//     oauth2Client.setCredentials(tokens);
+//     const accessToken = tokens.access_token;
+
+//     req.session.googleAccessToken = accessToken;
+//     await new Promise((resolve, reject) => {
+//       req.session.save((err) => (err ? reject(err) : resolve()));
+//     });
+
+//     if (isPopup) {
+//       return res.send(`
+//         <html><body>
+//           <script>
+//             window.opener?.postMessage(
+//               { type: 'google-auth-success', accessToken: '${accessToken}' },
+//               'https://www.withblip.com'
+//             );
+//             window.close();
+//           </script>
+//         </body></html>
+//       `);
+//     } else {
+//       return res.redirect('https://www.withblip.com/?googleAuth=success');
+//     }
+//   } catch (err) {
+//     console.error("Google auth error:", err);
+//     return res.status(500).send("Authentication failed");
+//   }
+// });
+
 
 // 3️⃣ Helper to ensure valid token
+// async function ensureValidGoogleToken(req) {
+//   if (!req.session.googleTokens) {
+//     throw new Error('No Google tokens found');
+//   }
+
+//   oauth2Client.setCredentials(req.session.googleTokens);
+
+//   try {
+//     const { token } = await oauth2Client.getAccessToken();
+//     return token;
+//   } catch (error) {
+//     throw new Error('Token refresh failed: ' + error.message);
+//   }
+// }
 async function ensureValidGoogleToken(req) {
-  if (!req.session.googleTokens) {
+  const tokens = req.session.googleTokens;
+  if (!tokens) {
     throw new Error('No Google tokens found');
   }
 
-  oauth2Client.setCredentials(req.session.googleTokens);
+  oauth2Client.setCredentials(tokens);
 
-  try {
-    const { token } = await oauth2Client.getAccessToken();
-    return token;
-  } catch (error) {
-    throw new Error('Token refresh failed: ' + error.message);
-  }
-}
-
-// 4️⃣ Endpoint to check if user is authenticated and get token
-app.get('/auth/google/status', async (req, res) => {
-  const accessToken = req.session.googleAccessToken;
-  const refreshToken = req.session.googleRefreshToken;
-
-  if (accessToken) {
-    return res.json({ authenticated: true, accessToken });
-  }
-
-  if (refreshToken) {
+  if (!tokens.expiry_date || tokens.expiry_date <= Date.now()) {
     try {
-      oauth2Client.setCredentials({ refresh_token: refreshToken });
       const { credentials } = await oauth2Client.refreshAccessToken();
-      req.session.googleAccessToken = credentials.access_token;
+      req.session.googleTokens = { ...tokens, ...credentials };
       await new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
-
-      return res.json({ authenticated: true, accessToken: credentials.access_token });
-    } catch (err) {
-      console.error("Failed to refresh access token:", err);
-      return res.json({ authenticated: false });
+      return credentials.access_token;
+    } catch (error) {
+      throw new Error('Token refresh failed: ' + error.message);
     }
   }
 
-  return res.json({ authenticated: false });
+  return tokens.access_token;
+}
+
+
+// 4️⃣ Endpoint to check if user is authenticated and get token
+// app.get('/auth/google/status', async (req, res) => {
+//   const accessToken = req.session.googleAccessToken;
+//   const refreshToken = req.session.googleRefreshToken;
+
+//   if (accessToken) {
+//     return res.json({ authenticated: true, accessToken });
+//   }
+
+//   if (refreshToken) {
+//     try {
+//       oauth2Client.setCredentials({ refresh_token: refreshToken });
+//       const { credentials } = await oauth2Client.refreshAccessToken();
+//       req.session.googleAccessToken = credentials.access_token;
+//       await new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
+
+//       return res.json({ authenticated: true, accessToken: credentials.access_token });
+//     } catch (err) {
+//       console.error("Failed to refresh access token:", err);
+//       return res.json({ authenticated: false });
+//     }
+//   }
+
+//   return res.json({ authenticated: false });
+// });
+
+app.get('/auth/google/status', async (req, res) => {
+  try {
+    const accessToken = await ensureValidGoogleToken(req);
+    return res.json({ authenticated: true, accessToken });
+  } catch (err) {
+    console.error("Token validation failed:", err.message);
+    return res.json({ authenticated: false });
+  }
 });
 
 
