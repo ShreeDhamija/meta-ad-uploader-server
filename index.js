@@ -1988,41 +1988,70 @@ app.get('/auth/google/callback', async (req, res) => {
 // });
 
 
-// 3️⃣ Helper to ensure valid token
+
 // async function ensureValidGoogleToken(req) {
-//   if (!req.session.googleTokens) {
+//   const tokens = req.session.googleTokens;
+//   if (!tokens) {
 //     throw new Error('No Google tokens found');
 //   }
 
-//   oauth2Client.setCredentials(req.session.googleTokens);
+//   oauth2Client.setCredentials(tokens);
 
-//   try {
-//     const { token } = await oauth2Client.getAccessToken();
-//     return token;
-//   } catch (error) {
-//     throw new Error('Token refresh failed: ' + error.message);
+//   if (!tokens.expiry_date || tokens.expiry_date <= Date.now()) {
+//     try {
+//       const { credentials } = await oauth2Client.refreshAccessToken();
+//       req.session.googleTokens = { ...tokens, ...credentials };
+//       await new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
+//       return credentials.access_token;
+//     } catch (error) {
+//       throw new Error('Token refresh failed: ' + error.message);
+//     }
 //   }
+
+//   return tokens.access_token;
 // }
+// In index.js, find and REPLACE your existing ensureValidGoogleToken function with this one.
+
 async function ensureValidGoogleToken(req) {
   const tokens = req.session.googleTokens;
   if (!tokens) {
-    throw new Error('No Google tokens found');
+    throw new Error('No Google tokens found in session. Please re-authenticate.');
   }
 
+  // Set the credentials on the oauth2Client instance
   oauth2Client.setCredentials(tokens);
 
-  if (!tokens.expiry_date || tokens.expiry_date <= Date.now()) {
-    try {
-      const { credentials } = await oauth2Client.refreshAccessToken();
-      req.session.googleTokens = { ...tokens, ...credentials };
-      await new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
-      return credentials.access_token;
-    } catch (error) {
-      throw new Error('Token refresh failed: ' + error.message);
-    }
-  }
+  // The getAccessToken() method is the key. It automatically checks if the
+  // token is expired and, if so, uses the refresh_token to get a new one.
+  try {
+    const { token, res } = await oauth2Client.getAccessToken();
 
-  return tokens.access_token;
+    // The 'res' object will contain data if a token refresh actually occurred.
+    // If it's null, it means the existing access_token was still valid.
+    if (res?.data) {
+      console.log('✅ Google token was refreshed successfully.');
+
+      // Merge the new token data (like a new access_token and expiry_date)
+      // with the old data (to preserve the refresh_token).
+      req.session.googleTokens = { ...tokens, ...res.data };
+
+      // Save the updated session to Redis.
+      await new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
+    }
+
+    // Return the valid access token (either the old one or the newly refreshed one).
+    return token;
+
+  } catch (error) {
+    console.error('❌ Failed to refresh or validate Google token:', error.response?.data || error.message);
+
+    // If the refresh fails, the refresh_token is likely revoked.
+    // We should clear the tokens from the session to force the user to log in again.
+    delete req.session.googleTokens;
+    await new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
+
+    throw new Error('Token refresh failed. Please re-authenticate.');
+  }
 }
 
 
@@ -2396,10 +2425,10 @@ async function handleDynamicVideoAd(
   for (const s3VideoUrl of s3VideoUrls) {
     try {
       console.log("📤 Processing S3 video URL:", s3VideoUrl)
-
+      // Mark S3 file for cleanup
+      s3FilesToCleanup.push(s3VideoUrl)
       // Upload to Meta using file_url (let Meta download directly)
       const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`
-
       const videoUploadResponse = await axios.post(uploadVideoUrl, null, {
         params: {
           access_token: token,
@@ -2443,7 +2472,7 @@ async function handleDynamicVideoAd(
       })
 
       // Mark S3 file for cleanup
-      s3FilesToCleanup.push(s3VideoUrl)
+      //s3FilesToCleanup.push(s3VideoUrl)
     } catch (err) {
       console.error(`❌ Failed to process S3 video ${s3VideoUrl}:`, err.message)
     }
