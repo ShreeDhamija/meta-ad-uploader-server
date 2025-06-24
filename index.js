@@ -313,7 +313,6 @@ app.get('/auth/callback', async (req, res) => {
       profilePicUrl: picture?.data?.url || ""
     };
 
-    //console.log("📦 Session about to be saved:", req.session);
 
     // 4. Save session before redirect
     req.session.save(async (err) => {
@@ -321,8 +320,6 @@ app.get('/auth/callback', async (req, res) => {
         console.error("❌ Session save failed:", err);
         return res.status(500).send("Session save error");
       }
-
-      //      console.log("✅ Session saved successfully");
 
       // 5. Update Firestore
       await createOrUpdateUser({
@@ -504,8 +501,7 @@ app.post('/auth/duplicate-adset', async (req, res) => {
         console.log(`Ad set ${newAdSetId} renamed to: ${newAdSetName.trim()}`);
       } catch (updateError) {
         console.error('Failed to update ad set name:', updateError.response?.data || updateError.message);
-        // Don't fail the entire request if renaming fails, just log the error
-        // The ad set was still created successfully
+
       }
     }
 
@@ -1937,81 +1933,8 @@ app.get('/auth/google/callback', async (req, res) => {
   }
 });
 
-// app.get('/auth/google/callback', async (req, res) => {
-//   const { code, state } = req.query;
-//   if (!code || !state) {
-//     return res.status(400).send("Missing code or state");
-//   }
-
-//   // 🔐 Validate the state parameter (anti-CSRF + popup mode)
-//   let decodedState;
-//   try {
-//     decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
-//   } catch (err) {
-//     return res.status(400).send("Invalid state encoding");
-//   }
-
-//   const isPopup = decodedState.mode === 'popup';
-//   const isValidCSRF = decodedState.csrf === req.session.googleCSRF;
-//   if (!isValidCSRF) {
-//     return res.status(400).send("Invalid OAuth state");
-//   }
-
-//   try {
-//     const { tokens } = await oauth2Client.getToken(code);
-//     oauth2Client.setCredentials(tokens);
-//     const accessToken = tokens.access_token;
-
-//     req.session.googleAccessToken = accessToken;
-//     await new Promise((resolve, reject) => {
-//       req.session.save((err) => (err ? reject(err) : resolve()));
-//     });
-
-//     if (isPopup) {
-//       return res.send(`
-//         <html><body>
-//           <script>
-//             window.opener?.postMessage(
-//               { type: 'google-auth-success', accessToken: '${accessToken}' },
-//               'https://www.withblip.com'
-//             );
-//             window.close();
-//           </script>
-//         </body></html>
-//       `);
-//     } else {
-//       return res.redirect('https://www.withblip.com/?googleAuth=success');
-//     }
-//   } catch (err) {
-//     console.error("Google auth error:", err);
-//     return res.status(500).send("Authentication failed");
-//   }
-// });
 
 
-
-// async function ensureValidGoogleToken(req) {
-//   const tokens = req.session.googleTokens;
-//   if (!tokens) {
-//     throw new Error('No Google tokens found');
-//   }
-
-//   oauth2Client.setCredentials(tokens);
-
-//   if (!tokens.expiry_date || tokens.expiry_date <= Date.now()) {
-//     try {
-//       const { credentials } = await oauth2Client.refreshAccessToken();
-//       req.session.googleTokens = { ...tokens, ...credentials };
-//       await new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
-//       return credentials.access_token;
-//     } catch (error) {
-//       throw new Error('Token refresh failed: ' + error.message);
-//     }
-//   }
-
-//   return tokens.access_token;
-// }
-// In index.js, find and REPLACE your existing ensureValidGoogleToken function with this one.
 
 async function ensureValidGoogleToken(req) {
   const tokens = req.session.googleTokens;
@@ -2055,32 +1978,6 @@ async function ensureValidGoogleToken(req) {
   }
 }
 
-
-// 4️⃣ Endpoint to check if user is authenticated and get token
-// app.get('/auth/google/status', async (req, res) => {
-//   const accessToken = req.session.googleAccessToken;
-//   const refreshToken = req.session.googleRefreshToken;
-
-//   if (accessToken) {
-//     return res.json({ authenticated: true, accessToken });
-//   }
-
-//   if (refreshToken) {
-//     try {
-//       oauth2Client.setCredentials({ refresh_token: refreshToken });
-//       const { credentials } = await oauth2Client.refreshAccessToken();
-//       req.session.googleAccessToken = credentials.access_token;
-//       await new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
-
-//       return res.json({ authenticated: true, accessToken: credentials.access_token });
-//     } catch (err) {
-//       console.error("Failed to refresh access token:", err);
-//       return res.json({ authenticated: false });
-//     }
-//   }
-
-//   return res.json({ authenticated: false });
-// });
 
 app.get('/auth/google/status', async (req, res) => {
   try {
