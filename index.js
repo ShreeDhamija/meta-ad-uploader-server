@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const app = express();
 const { db } = require("./firebase");
+const util = require('util');
 const {
   createOrUpdateUser,
   getUserByFacebookId,
@@ -947,7 +948,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
     if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
       creativePart.asset_feed_spec = shopDestinationFieldsForAssetFeed;
     }
-    console.dir(creativePart, { depth: null, colors: true });
+    console.log(util.inspect(creativePart, { depth: null, colors: true }));
     return {
       name: adName,
       adset_id: adSetId,
@@ -1197,7 +1198,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     shopDestinationType,
     adStatus
   });
-  console.dir(creativePayload, { depth: null, colors: true });
+  console.log(util.inspect(creativePayload, { depth: null, colors: true }));
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await retryWithBackoff(() =>
     axios.post(createAdUrl, creativePayload, {
