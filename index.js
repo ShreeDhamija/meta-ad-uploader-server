@@ -876,7 +876,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
 
 // Helper: Build image creative payload
 function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus }) {
-
+  console.log("building image creativePayload");
   let shopDestinationFieldsForAssetFeed = {};
 
   if (shopDestination && shopDestinationType) {
@@ -1162,7 +1162,7 @@ async function handleVideoAd(
 async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus) {
   const file = req.files.imageFile && req.files.imageFile[0];
   const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
-
+  console.log("handling incoming image file");
   const formData = new FormData();
   formData.append('access_token', token);
   formData.append('file', fs.createReadStream(file.path), {
@@ -1194,7 +1194,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     shopDestinationType,
     adStatus
   });
-  console.log(util.inspect(creativePayload, { depth: null, colors: true }));
+  // console.log(util.inspect(creativePayload, { depth: null, colors: true }));
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await retryWithBackoff(() =>
     axios.post(createAdUrl, creativePayload, {
@@ -1224,7 +1224,7 @@ app.post(
   async (req, res) => {
     const token = req.session.accessToken;
     if (!token) return res.status(401).json({ error: 'User not authenticated' });
-
+    console.log("create-ad reached");
     try {
       // Extract basic fields and parse creative text fields.
       const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId, shopDestination, shopDestinationType, launchPaused } = req.body;
