@@ -1281,12 +1281,13 @@ app.post(
 
     const progressTracker = getProgressTracker();
     progressTracker.startJob(jobId, 100, 'Starting ad creation...');
+    console.log(`🟢 Job ${jobId} created at:`, new Date().toISOString());
+
 
     try {
       // Extract basic fields and parse creative text fields.
       const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId, shopDestination, shopDestinationType, launchPaused } = req.body;
-      console.log('🔍 After destructuring - jobId still:', jobId);
-      console.log('🔍 After destructuring - req.body.jobId:', req.body.jobId);
+
 
 
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });

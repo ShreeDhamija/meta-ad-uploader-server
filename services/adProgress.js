@@ -98,6 +98,8 @@ const router = express.Router();
 
 router.get('/progress/:jobId', (req, res) => {
     const { jobId } = req.params;
+    console.log(`🔍 SSE connection attempt for ${jobId} at:`, new Date().toISOString());
+    console.log('📋 Available jobs:', Array.from(progressTracker.jobs.keys()));
 
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
