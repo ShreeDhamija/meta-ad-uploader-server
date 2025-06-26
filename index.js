@@ -1280,6 +1280,7 @@ app.post(
     }
 
     const progressTracker = getProgressTracker();
+    progressTracker.jobs.clear(); // Clear all old jobs
     progressTracker.startJob(jobId, 100, 'Starting ad creation...');
     console.log(`🟢 Job ${jobId} created at:`, new Date().toISOString());
 
