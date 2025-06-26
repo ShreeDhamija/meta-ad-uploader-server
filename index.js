@@ -1271,7 +1271,10 @@ app.post(
     const token = req.session.accessToken;
     if (!token) return res.status(401).json({ error: 'User not authenticated' });
     console.log("create-ad reached");
+
     const jobId = req.body.jobId;
+    console.log('🔍 Initial jobId:', jobId, typeof jobId);
+    console.log('🔍 Full req.body:', req.body);
     if (!jobId) {
       return res.status(400).json({ error: 'JobId is required' });
     }
@@ -1282,10 +1285,16 @@ app.post(
     try {
       // Extract basic fields and parse creative text fields.
       const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId, shopDestination, shopDestinationType, launchPaused } = req.body;
+      console.log('🔍 After destructuring - jobId still:', jobId);
+      console.log('🔍 After destructuring - req.body.jobId:', req.body.jobId);
+
 
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
+      console.log('🔍 Before setProgress - jobId:', jobId);
+
       progressTracker.setProgress(jobId, 5, 'Validating request data...');
       console.log(progressTracker);
+
       console.log('✅ Progress set to 5% for jobId:', jobId);
 
 
