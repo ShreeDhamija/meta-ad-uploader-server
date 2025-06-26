@@ -26,6 +26,9 @@ const crypto = require('crypto');
 const { google } = require('googleapis');
 const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { getProgressTracker, generateJobId, getProgressMessage, router: progressRouter } = require('./services/adProgress');
+
+app.use('/api', progressRouter);
 
 app.use(cors({
   origin: [
@@ -976,14 +979,21 @@ async function handleVideoAd(
   shopDestinationType,
   adStatus,
   s3VideoUrl = null,
+  progressContext = null
 ) {
+
   let videoId
   let shouldCleanupFile = false
   let filePath = null
+  const { jobId, progressTracker } = progressContext || {};
 
   if (s3VideoUrl) {
     // Handle S3 video URL - let Meta download directly!
     console.log("📤 Processing S3 video URL:", s3VideoUrl)
+    if (progressTracker) {
+      progressTracker.setProgress(jobId, 40, `Uploading video: ${file.originalname}...`);
+    }
+
 
     try {
       const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`
@@ -997,6 +1007,9 @@ async function handleVideoAd(
 
       videoId = videoUploadResponse.data.id
       console.log("✅ S3 Video uploaded to Meta via file_url. Video ID:", videoId)
+      if (progressTracker) {
+        progressTracker.setProgress(jobId, 60, 'Video uploaded, processing...');
+      }
 
       // Mark S3 file for cleanup in the finally block
       shouldCleanupFile = true
@@ -1011,6 +1024,9 @@ async function handleVideoAd(
     const file = req.files.imageFile?.[0]
     if (!file) throw new Error("Video file is required")
 
+    if (progressTracker) {
+      progressTracker.setProgress(jobId, 40, `Uploading video: ${file.originalname}...`);
+    }
     console.log("📤 Uploading video to Meta...")
     console.log(`🗂️ Video file "${file.originalname}": ${file.size} bytes`)
 
@@ -1028,6 +1044,12 @@ async function handleVideoAd(
       })
       videoId = videoUploadResponse.data.id
       console.log("✅ Video uploaded. Video ID:", videoId)
+
+      if (progressTracker) {
+        progressTracker.setProgress(jobId, 60, 'Video uploaded, processing...');
+      }
+
+
       filePath = file.path
       shouldCleanupFile = true
     } catch (err) {
@@ -1045,6 +1067,10 @@ async function handleVideoAd(
   const thumbnailFile = req.files.thumbnail?.[0]
   let thumbnailHash = null
   let thumbnailUrl = null
+
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 80, 'Getting video thumbnail...');
+  }
 
   if (thumbnailFile) {
     // Use custom thumbnail if provided
@@ -1092,6 +1118,10 @@ async function handleVideoAd(
     }
   }
 
+  // Before final ad creation:
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 90, 'Creating video ad...');
+  }
   const creativePayload = buildVideoCreativePayload({
     adName,
     adSetId,
@@ -1131,6 +1161,9 @@ async function handleVideoAd(
 
     console.log("✅ Ad created:", createAdResponse.data.id || createAdResponse.data)
 
+    if (progressTracker) {
+      progressTracker.setProgress(jobId, 95, 'Ads created succesfully!');
+    }
 
     return createAdResponse.data
   } catch (err) {
@@ -1159,7 +1192,9 @@ async function handleVideoAd(
 
 
 // Helper: Handle Image Ad Creation
-async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus) {
+async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus, progressContext = null) {
+
+  const { jobId, progressTracker } = progressContext || {};
   const file = req.files.imageFile && req.files.imageFile[0];
   const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
   console.log("handling incoming image file");
@@ -1175,6 +1210,11 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
   const imagesInfo = uploadResponse.data.images;
   const filenameKey = Object.keys(imagesInfo)[0];
   const imageHash = imagesInfo[filenameKey].hash;
+
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 40, `Uploading image: ${file.originalname}...`);
+  }
+
 
   const creativePayload = buildImageCreativePayload({
     adName,
@@ -1203,6 +1243,11 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
   );
 
 
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 95, 'Ads created succesfully!');
+  }
+
+
   fs.unlink(file.path, err => {
     if (err) console.error("Error deleting image file:", err);
     else console.log("Image file deleted:", file.path);
@@ -1225,11 +1270,15 @@ app.post(
     const token = req.session.accessToken;
     if (!token) return res.status(401).json({ error: 'User not authenticated' });
     console.log("create-ad reached");
+    const jobId = generateJobId();
+    const progressTracker = getProgressTracker();
+    progressTracker.startJob(jobId, 100, 'Starting ad creation...');
     try {
       // Extract basic fields and parse creative text fields.
       const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId, shopDestination, shopDestinationType, launchPaused } = req.body;
 
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
+      progressTracker.setProgress(jobId, 5, 'Validating request data...');
 
       const parseField = (field, fallback) => {
         try { return JSON.parse(field); } catch (e) { return fallback ? [fallback] : []; }
@@ -1268,6 +1317,7 @@ app.post(
               driveFiles.push(JSON.parse(fileJson));
             } catch (e) {
               console.error("Error parsing drive file JSON:", e);
+              progressTracker.errorJob(jobId, 'Error parsing file');
             }
           }
         } else {
@@ -1276,6 +1326,7 @@ app.post(
             driveFiles.push(JSON.parse(req.body.driveFiles));
           } catch (e) {
             console.error("Error parsing drive file JSON:", e);
+            progressTracker.errorJob(jobId, 'Error parsing file');
           }
         }
       }
@@ -1288,20 +1339,27 @@ app.post(
       const adSetDynamicCreative = adSetInfoResponse.data.is_dynamic_creative;
       const useDynamicCreative = adSetDynamicCreative;
 
+
       const adAccountSettings = await getAdAccountSettings(req.session.user.facebookId, adAccountId);
       const creativeEnhancements = adAccountSettings?.creativeEnhancements || {};
       const utmPairs = adAccountSettings?.defaultUTMs || [];
       const urlTags = buildUrlTagsFromPairs(utmPairs);
 
       // Handle Google Drive files for DYNAMIC ad sets only
+      progressTracker.setProgress(jobId, 10, 'Processing Google Drive files...');
       if (useDynamicCreative && driveFiles.length > 0) {
         req.files = req.files || {};
         req.files.mediaFiles = req.files.mediaFiles || [];
 
         for (const driveFile of driveFiles) {
+
           try {
             console.log(`Processing drive file for dynamic ad set: ${driveFile.name}`);
-
+            progressTracker.setProgress(
+              jobId,
+              10 + (index / driveFiles.length) * 10,
+              getProgressMessage('drive_file_processing', { fileName: driveFile.name })
+            );
             const fileRes = await axios({
               url: `https://www.googleapis.com/drive/v3/files/${driveFile.id}?alt=media`,
               method: 'GET',
@@ -1330,6 +1388,8 @@ app.post(
             console.log(`Added drive file to mediaFiles for dynamic ad set: ${driveFile.name}`);
           } catch (error) {
             console.error(`Error processing drive file ${driveFile.name}:`, error);
+            progressTracker.errorJob(jobId, 'Error processing drive file');
+
           }
         }
       }
@@ -1338,7 +1398,7 @@ app.post(
       if (!useDynamicCreative && req.body.driveFile === 'true' && req.body.driveId && req.body.driveAccessToken) {
         try {
           console.log(`Processing single drive file for regular ad set: ${req.body.driveName}`);
-
+          progressTracker.setProgress(jobId, 15, getProgressMessage('drive_file_processing', { fileName: req.body.driveName }));
           const fileRes = await axios({
             url: `https://www.googleapis.com/drive/v3/files/${req.body.driveId}?alt=media`,
             method: 'GET',
@@ -1369,9 +1429,15 @@ app.post(
           console.log(`Added drive file to imageFile for regular ad set: ${req.body.driveName}`);
         } catch (error) {
           console.error(`Error processing drive file for regular ad set:`, error);
+          progressTracker.errorJob(jobId, 'Failed to process Google Drive filee');
           return res.status(400).json({ error: 'Failed to process Google Drive file' });
+
         }
       }
+
+      progressTracker.setProgress(jobId, 20, 'Categorizing files for processing...');
+      // Add progress context
+      const progressContext = { jobId, progressTracker };
 
       let result;
       // For dynamic ad creative, use the aggregated media fields.
@@ -1414,6 +1480,7 @@ app.post(
             shopDestinationType,
             adStatus,
             s3VideoUrls, // Pass S3 URLs
+            progressContext
 
           );
         } else {
@@ -1434,7 +1501,8 @@ app.post(
             creativeEnhancements,
             shopDestination,
             shopDestinationType,
-            adStatus
+            adStatus,
+            progressContext
           );
         }
       } else {
@@ -1491,6 +1559,7 @@ app.post(
             shopDestinationType,
             adStatus,
             s3VideoUrl, // Pass S3 URL
+            progressContext
 
           );
         } else {
@@ -1512,13 +1581,17 @@ app.post(
             creativeEnhancements,
             shopDestination,
             shopDestinationType,
-            adStatus
+            adStatus,
+            progressContext
           );
         }
       }
-      return res.json(result);
+      progressTracker.completeJob(jobId, 'All ads created successfully!');
+      return res.json({ ...result, jobId });
+      //return res.json(result);
     } catch (error) {
       console.error('Create Ad Error:', error.response?.data || error.message);
+      progressTracker.errorJob(jobId, error.response?.data?.error?.error_user_msg || error.message || 'Failed to create ad');
       cleanupUploadedFiles(req.files); // 🧼 cleanup
       const fbErrorMsg = error.response?.data?.error?.error_user_msg || error.message || 'Failed to create ad';
       return res.status(400).send(fbErrorMsg);
@@ -2151,10 +2224,17 @@ async function fetchRecentAds(adAccountId, token) {
 
 
 // Helper: Process multiple images for dynamic creative.
-async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus) {
+async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus, progressContext = null) {
   const mediaFiles = req.files.mediaFiles;
   let imageHashes = [];
+  const { jobId, progressTracker } = progressContext || {};
+
   for (const file of mediaFiles) {
+
+    if (progressTracker) {
+      progressTracker.setProgress(jobId, 40 + (imageHashes.length * 8), `Processed image ${imageHashes.length}/${mediaFiles.length}`);
+    }
+
     const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
     const formData = new FormData();
     formData.append('access_token', token);
@@ -2215,6 +2295,10 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     status: adStatus
   };
 
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 85, 'Creating dynamic image ad...');
+  }
+
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await retryWithBackoff(() =>
     axios.post(createAdUrl, creativePayload, {
@@ -2246,10 +2330,15 @@ async function handleDynamicVideoAd(
   shopDestinationType,
   adStatus,
   s3VideoUrls = [],
+  progressContext = null
+
 ) {
   const mediaFiles = req.files.mediaFiles || []
   const videoAssets = []
   const s3FilesToCleanup = []
+
+  const { jobId, progressTracker } = progressContext || {};
+  let currentProgress = 30; // Start after initial processing
 
   // Process regular uploaded files
   for (const file of mediaFiles) {
@@ -2263,12 +2352,21 @@ async function handleDynamicVideoAd(
         contentType: file.mimetype,
       })
 
+      if (progressTracker) {
+        currentProgress += 10;
+        progressTracker.setProgress(jobId, currentProgress, `Uploading video: ${file.originalname}`);
+      }
       const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
         headers: videoFormData.getHeaders(),
       })
 
       const videoId = videoUploadResponse.data.id
       await waitForVideoProcessing(videoId, token)
+
+      if (progressTracker) {
+        currentProgress += 10;
+        progressTracker.setProgress(jobId, currentProgress, `Processed video: ${file.originalname}`);
+      }
 
       // 2. Get Meta-generated thumbnail
       let thumbnailSource = {}
@@ -2333,10 +2431,18 @@ async function handleDynamicVideoAd(
           file_url: s3VideoUrl, // ← Let Meta download directly from S3
         },
       })
-
+      if (progressTracker) {
+        currentProgress += 8;
+        progressTracker.setProgress(jobId, currentProgress, `Processing S3 video`);
+      }
       const videoId = videoUploadResponse.data.id
       await waitForVideoProcessing(videoId, token)
       console.log("✅ S3 Video uploaded to Meta via file_url. Video ID:", videoId)
+
+      if (progressTracker) {
+        currentProgress += 10;
+        progressTracker.setProgress(jobId, currentProgress, `Processed video: ${file.originalname}`);
+      }
 
       // Get Meta-generated thumbnail
       let thumbnailSource = {}
@@ -2406,6 +2512,11 @@ async function handleDynamicVideoAd(
     ...shopDestinationFields,
   }
 
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 65, 'Processing dynamic video ad...');
+  }
+
+
   const creativePayload = {
     name: adName,
     adset_id: adSetId,
@@ -2422,6 +2533,11 @@ async function handleDynamicVideoAd(
     },
     status: adStatus,
   }
+
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 85, 'Creating dynamic video ad...');
+  }
+
 
   try {
     const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`
