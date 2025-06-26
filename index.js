@@ -993,7 +993,8 @@ async function handleVideoAd(
     if (progressTracker) {
       progressTracker.setProgress(jobId, 40, `Uploading video:...`);
     }
-
+    console.log(progressTracker);
+    console.log('✅ Progress set to 40% for jobId:', jobId);
 
     try {
       const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`
@@ -1273,12 +1274,16 @@ app.post(
     const jobId = generateJobId();
     const progressTracker = getProgressTracker();
     progressTracker.startJob(jobId, 100, 'Starting ad creation...');
+
     try {
       // Extract basic fields and parse creative text fields.
       const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId, shopDestination, shopDestinationType, launchPaused } = req.body;
 
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
       progressTracker.setProgress(jobId, 5, 'Validating request data...');
+      console.log(progressTracker);
+      console.log('✅ Progress set to 5% for jobId:', jobId);
+
 
       const parseField = (field, fallback) => {
         try { return JSON.parse(field); } catch (e) { return fallback ? [fallback] : []; }
@@ -1436,6 +1441,8 @@ app.post(
       }
 
       progressTracker.setProgress(jobId, 20, 'Categorizing files for processing...');
+      console.log('✅ Progress set to 20% for jobId:', jobId);
+
       // Add progress context
       const progressContext = { jobId, progressTracker };
 
