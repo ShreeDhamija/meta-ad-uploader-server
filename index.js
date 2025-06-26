@@ -1271,7 +1271,11 @@ app.post(
     const token = req.session.accessToken;
     if (!token) return res.status(401).json({ error: 'User not authenticated' });
     console.log("create-ad reached");
-    const jobId = generateJobId();
+    const jobId = req.body.jobId;
+    if (!jobId) {
+      return res.status(400).json({ error: 'JobId is required' });
+    }
+
     const progressTracker = getProgressTracker();
     progressTracker.startJob(jobId, 100, 'Starting ad creation...');
 
