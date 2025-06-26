@@ -991,7 +991,7 @@ async function handleVideoAd(
     // Handle S3 video URL - let Meta download directly!
     console.log("📤 Processing S3 video URL:", s3VideoUrl)
     if (progressTracker) {
-      progressTracker.setProgress(jobId, 40, `Uploading video: ${file.originalname}...`);
+      progressTracker.setProgress(jobId, 40, `Uploading video:...`);
     }
 
 
