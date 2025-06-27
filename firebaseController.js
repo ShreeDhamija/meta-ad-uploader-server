@@ -152,7 +152,7 @@ async function createOrUpdateUser({ facebookId, name, email, picture, accessToke
 
         if (!paymentDoc.exists) {
             const trialEndDate = new Date();
-            trialEndDate.setDate(trialEndDate.getDate() + 14);
+            trialEndDate.setDate(trialEndDate.getDate() + 7);
 
             await paymentRef.set({
                 subscriptionStatus: 'trial',

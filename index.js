@@ -19,6 +19,8 @@ const {
   getGlobalSettings,
   getAdAccountSettings,
   deleteCopyTemplate,
+  getSubscriptionStatus,
+
 } = require("./firebaseController");
 const { createClient } = require('redis');
 const { RedisStore } = require('connect-redis');
@@ -2218,6 +2220,24 @@ app.post('/auth/get-upload-url', async (req, res) => {
     res.status(500).json({ error: 'Failed to generate upload URL' });
   }
 });
+
+//Payment Endpoints
+app.get('/api/subscription/status', requireAuth, async (req, res) => {
+  try {
+    const facebookId = req.user.facebookId;
+    const subscriptionData = await getSubscriptionStatus(facebookId);
+
+    if (!subscriptionData) {
+      return res.status(404).json({ error: 'Subscription data not found' });
+    }
+
+    res.json(subscriptionData);
+  } catch (error) {
+    console.error('Get subscription status error:', error);
+    res.status(500).json({ error: 'Failed to get subscription status' });
+  }
+});
+
 
 
 //to fetch ad previews
