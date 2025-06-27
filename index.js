@@ -2222,10 +2222,12 @@ app.post('/auth/get-upload-url', async (req, res) => {
 });
 
 //Payment Endpoints
-app.get('/api/subscription/status', requireAuth, async (req, res) => {
+app.get('/api/subscription/status', async (req, res) => {
+  const sessionUser = req.session.user;
+  if (!sessionUser) return res.status(401).json({ error: "Not authenticated" });
+
   try {
-    const facebookId = req.user.facebookId;
-    const subscriptionData = await getSubscriptionStatus(facebookId);
+    const subscriptionData = await getSubscriptionStatus(sessionUser.facebookId);
 
     if (!subscriptionData) {
       return res.status(404).json({ error: 'Subscription data not found' });
