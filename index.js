@@ -217,7 +217,7 @@ async function getMetaVideoThumbnail(videoId, token, maxRetries = 5) {
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  'https://meta-ad-uploader-server-production.up.railway.app/auth/google/callback' // Your redirect URI
+  'https://api.withblip.com/auth/google/callback' // Your redirect URI
 );
 const SCOPES = ['https://www.googleapis.com/auth/drive.readonly'];
 
@@ -255,7 +255,7 @@ let userData = {};
 
 app.get('/auth/facebook', (req, res) => {
   const clientId = process.env.META_APP_ID; // add this to your .env file
-  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${clientId}&redirect_uri=https://meta-ad-uploader-server-production.up.railway.app/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads&auth_type=rerequest&response_type=code`;
+  const redirectUri = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${clientId}&redirect_uri=https://api.withblip.com/auth/callback&scope=ads_read,ads_management,business_management,pages_show_list,email,pages_read_engagement,instagram_basic,pages_manage_ads&auth_type=rerequest&response_type=code`;
   res.redirect(redirectUri);
 });
 
@@ -276,7 +276,7 @@ app.get('/auth/callback', async (req, res) => {
       params: {
         client_id: process.env.META_APP_ID,
         client_secret: process.env.META_APP_SECRET,
-        redirect_uri: 'https://meta-ad-uploader-server-production.up.railway.app/auth/callback',
+        redirect_uri: 'https://api.withblip.com/auth/callback',
         code: code
       }
     });
@@ -546,7 +546,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
               redirect: false,
             },
           })
-          profilePicture = picRes.data?.data?.url || "https://meta-ad-uploader-server-production.up.railway.app/backup_page_image.png"
+          profilePicture = picRes.data?.data?.url || "https://api.withblip.com/backup_page_image.png"
         } catch (err) {
           console.warn(`Failed to fetch profile picture for page ${page.id}:`, err.message)
         }
@@ -1112,12 +1112,12 @@ async function handleVideoAd(
         console.log("✅ Using Meta-generated thumbnail:", thumbnailUrl)
       } else {
         // Fallback to static URL
-        thumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg"
+        thumbnailUrl = "https://api.withblip.com/thumbnail.jpg"
         console.log("⚠️ Using fallback thumbnail URL")
       }
     } catch (err) {
       console.error("❌ Failed to get Meta thumbnail:", err.message)
-      thumbnailUrl = "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg"
+      thumbnailUrl = "https://api.withblip.com/thumbnail.jpg"
     }
   }
 
@@ -2422,7 +2422,7 @@ async function handleDynamicVideoAd(
         //   thumbnailSource = { thumbnail_url: metaThumbnailUrl }
         //   console.log(`✅ Using Meta thumbnail:`, metaThumbnailUrl)
         // } else {
-        //   thumbnailSource = { thumbnail_url: "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg" }
+        //   thumbnailSource = { thumbnail_url: "https://api.withblip.com/thumbnail.jpg" }
         //   console.log(`⚠️ Using fallback thumbnail`)
         // }
         console.log(`🎬 Getting Meta-generated thumbnail for S3 video...`)
@@ -2439,12 +2439,12 @@ async function handleDynamicVideoAd(
           }
         }
         else {
-          thumbnailSource = { thumbnail_url: "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg" }
+          thumbnailSource = { thumbnail_url: "https://api.withblip.com/thumbnail.jpg" }
           console.log(`⚠️ Using fallback thumbnail`)
         }
       } catch (err) {
         console.error(`❌ Failed to get Meta thumbnail:`, err.message)
-        thumbnailSource = { thumbnail_url: "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg" }
+        thumbnailSource = { thumbnail_url: "https://api.withblip.com/thumbnail.jpg" }
       }
 
       // 3. Store video asset with thumbnail
@@ -2505,12 +2505,12 @@ async function handleDynamicVideoAd(
           }
         }
         else {
-          thumbnailSource = { thumbnail_url: "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg" }
+          thumbnailSource = { thumbnail_url: "https://api.withblip.com/thumbnail.jpg" }
           console.log(`⚠️ Using fallback thumbnail`)
         }
       } catch (err) {
         console.error(`❌ Failed to get Meta thumbnail:`, err.message)
-        thumbnailSource = { thumbnail_url: "https://meta-ad-uploader-server-production.up.railway.app/thumbnail.jpg" }
+        thumbnailSource = { thumbnail_url: "https://api.withblip.com/thumbnail.jpg" }
       }
 
       // Store video asset with thumbnail
