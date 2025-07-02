@@ -219,7 +219,7 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_SECRET,
   'https://api.withblip.com/auth/google/callback' // Your redirect URI
 );
-const SCOPES = ['https://www.googleapis.com/auth/drive.readonly'];
+const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 
 
 
