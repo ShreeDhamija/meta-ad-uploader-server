@@ -541,7 +541,7 @@ app.post('/auth/duplicate-campaign', async (req, res) => {
     const originalCampaign = campaignResponse.data;
 
     // Step 2: Create new campaign (structure only, no deep copy)
-    const createCampaignUrl = `https://graph.facebook.com/v21.0/act_${adAccountId}/campaigns`;
+    const createCampaignUrl = `https://graph.facebook.com/v21.0/${adAccountId}/campaigns`;
     const newCampaignParams = {
       name: newCampaignName || (originalCampaign.name + '_02'),
       objective: originalCampaign.objective,
