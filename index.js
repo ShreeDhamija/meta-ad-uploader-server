@@ -484,7 +484,7 @@ app.post('/auth/duplicate-campaign', async (req, res) => {
     // Step 1: Duplicate the campaign
     const copyUrl = `https://graph.facebook.com/v21.0/${campaignId}/copies`;
     const params = {
-      deep_copy: true, // This will copy adsets but not ads
+      deep_copy: false, // This will copy adsets but not ads
       rename_options: JSON.stringify({ rename_suffix: '_02' }),
       access_token: token,
       status_option: "INHERITED_FROM_SOURCE", // Start as paused for safety
