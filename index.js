@@ -471,6 +471,54 @@ app.get('/auth/fetch-adsets', async (req, res) => {
 });
 
 
+app.post('/auth/duplicate-campaign', async (req, res) => {
+  const token = req.session.accessToken;
+  if (!token) return res.status(401).json({ error: 'User not authenticated' });
+
+  const { campaignId, adAccountId, newCampaignName } = req.body;
+  if (!campaignId || !adAccountId) {
+    return res.status(400).json({ error: 'Missing required parameters' });
+  }
+
+  try {
+    // Step 1: Duplicate the campaign
+    const copyUrl = `https://graph.facebook.com/v21.0/${campaignId}/copies`;
+    const params = {
+      deep_copy: true, // This will copy adsets but not ads
+      rename_options: JSON.stringify({ rename_suffix: '_02' }),
+      access_token: token,
+      status_option: "INHERITED_FROM_SOURCE", // Start as paused for safety
+    };
+
+    const copyResponse = await axios.post(copyUrl, null, { params });
+    const newCampaignId = copyResponse.data.copied_campaign_id;
+
+    // Step 2: Update the campaign name if newCampaignName is provided
+    if (newCampaignName && newCampaignName.trim() !== '') {
+      const updateUrl = `https://graph.facebook.com/v21.0/${newCampaignId}`;
+      const updateParams = {
+        name: newCampaignName.trim(),
+        access_token: token,
+      };
+
+      try {
+        await axios.post(updateUrl, null, { params: updateParams });
+        console.log(`Campaign ${newCampaignId} renamed to: ${newCampaignName.trim()}`);
+      } catch (updateError) {
+        console.error('Failed to update campaign name:', updateError.response?.data || updateError.message);
+      }
+    }
+
+    return res.json({
+      copied_campaign_id: newCampaignId,
+      message: 'Campaign duplicated successfully'
+    });
+  } catch (error) {
+    console.error('Duplicate campaign error:', error.response?.data || error.message);
+    return res.status(500).json({ error: 'Failed to duplicate campaign' });
+  }
+});
+
 app.post('/auth/duplicate-adset', async (req, res) => {
   const token = req.session.accessToken;
   if (!token) return res.status(401).json({ error: 'User not authenticated' });
@@ -487,7 +535,7 @@ app.post('/auth/duplicate-adset', async (req, res) => {
       campaign_id: campaignId,
       rename_options: JSON.stringify({ rename_suffix: '_02' }),
       access_token: token,
-      status_option: "ACTIVE",
+      status_option: "INHERITED_FROM_SOURCE",
 
     };
     const copyResponse = await axios.post(copyUrl, null, { params });
