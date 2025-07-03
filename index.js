@@ -574,7 +574,7 @@ app.post('/auth/duplicate-campaign', async (req, res) => {
         const copyAdSetUrl = `https://graph.facebook.com/v21.0/${adSet.id}/copies`;
         const copyParams = {
           campaign_id: newCampaignId,
-          rename_options: 'NO_RENAME',
+          rename_options: JSON.stringify({ rename_strategy: 'NO_RENAME' }),
           status_option: "PAUSED",
           access_token: token
         };
