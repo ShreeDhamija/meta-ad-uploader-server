@@ -520,7 +520,6 @@ app.get('/auth/fetch-adsets', async (req, res) => {
 // });
 
 
-
 app.post('/auth/duplicate-campaign', async (req, res) => {
   const token = req.session.accessToken;
   if (!token) return res.status(401).json({ error: 'User not authenticated' });
@@ -541,7 +540,7 @@ app.post('/auth/duplicate-campaign', async (req, res) => {
     });
     const originalCampaign = campaignResponse.data;
 
-    // Step 2: Create new campaign (copy structure only)
+    // Step 2: Create new campaign (structure only, no deep copy)
     const createCampaignUrl = `https://graph.facebook.com/v21.0/act_${adAccountId}/campaigns`;
     const newCampaignParams = {
       name: newCampaignName || (originalCampaign.name + '_02'),
@@ -555,160 +554,247 @@ app.post('/auth/duplicate-campaign', async (req, res) => {
     const newCampaignResponse = await axios.post(createCampaignUrl, newCampaignParams);
     const newCampaignId = newCampaignResponse.data.id;
 
-    // Step 3: Get original ad sets with ALL possible fields
+    console.log(`✅ Created new campaign: ${newCampaignParams.name} (${newCampaignId})`);
+
+    // Step 3: Get all ad sets from original campaign
     const adSetsUrl = `https://graph.facebook.com/v21.0/${campaignId}/adsets`;
     const adSetsResponse = await axios.get(adSetsUrl, {
       params: {
-        fields: 'id,name,account_id,adlabels,adset_schedule,attribution_spec,bid_adjustments,bid_amount,bid_constraints,bid_info,bid_strategy,billing_event,budget_remaining,campaign,campaign_id,configured_status,created_time,creative_sequence,daily_budget,daily_min_spend_target,daily_spend_cap,destination_type,effective_status,end_time,frequency_control_specs,full_funnel_exploration_mode,instagram_actor_id,is_dynamic_creative,issues_info,learning_stage_info,lifetime_budget,lifetime_imps,lifetime_min_spend_target,lifetime_spend_cap,multi_optimization_goal_weight,name,optimization_goal,optimization_sub_event,pacing_type,promoted_object,recommendations,recurring_budget_semantics,review_feedback,rf_prediction_id,source_adset,source_adset_id,start_time,status,targeting,time_based_ad_rotation_id_blocks,time_based_ad_rotation_intervals,tune_for_category,updated_time,use_new_app_click,campaign_spec,daily_imps,date_format,execution_options,line_number,rb_prediction_id,time_start,time_stop',
+        fields: 'id,name',
         access_token: token
       }
     });
 
     const originalAdSets = adSetsResponse.data.data;
-    const createdAdSets = [];
+    const copiedAdSets = [];
 
-    // Step 4: Recreate each ad set in the new campaign
+    // Step 4: Copy each ad set to the new campaign using Facebook's copy API
     for (const adSet of originalAdSets) {
       try {
-        const createAdSetUrl = `https://graph.facebook.com/v21.0/act_${adAccountId}/adsets`;
-
-        // Prepare ad set creation parameters with all possible fields
-        const adSetParams = {
-          name: adSet.name + '_02',
+        const copyAdSetUrl = `https://graph.facebook.com/v21.0/${adSet.id}/copies`;
+        const copyParams = {
           campaign_id: newCampaignId,
-          status: 'PAUSED', // Always start paused for safety
+          rename_options: 'NO_RENAME',
+          status_option: "PAUSED",
           access_token: token
         };
 
-        // Core required fields
-        if (adSet.optimization_goal) adSetParams.optimization_goal = adSet.optimization_goal;
-        if (adSet.billing_event) adSetParams.billing_event = adSet.billing_event;
-        if (adSet.targeting) adSetParams.targeting = JSON.stringify(adSet.targeting);
+        const copyResponse = await axios.post(copyAdSetUrl, null, { params: copyParams });
+        const newAdSetId = copyResponse.data.copied_adset_id;
 
-        // Budget fields (mutually exclusive - daily OR lifetime)
-        if (adSet.daily_budget) {
-          adSetParams.daily_budget = adSet.daily_budget;
-        } else if (adSet.lifetime_budget) {
-          adSetParams.lifetime_budget = adSet.lifetime_budget;
-        }
-
-        // Bidding fields
-        if (adSet.bid_amount) adSetParams.bid_amount = adSet.bid_amount;
-        if (adSet.bid_strategy) adSetParams.bid_strategy = adSet.bid_strategy;
-        if (adSet.bid_constraints && Object.keys(adSet.bid_constraints).length > 0) {
-          adSetParams.bid_constraints = JSON.stringify(adSet.bid_constraints);
-        }
-        if (adSet.bid_adjustments && Object.keys(adSet.bid_adjustments).length > 0) {
-          adSetParams.bid_adjustments = JSON.stringify(adSet.bid_adjustments);
-        }
-
-        // Time scheduling
-        if (adSet.start_time) adSetParams.start_time = adSet.start_time;
-        if (adSet.end_time) adSetParams.end_time = adSet.end_time;
-        if (adSet.adset_schedule && adSet.adset_schedule.length > 0) {
-          adSetParams.adset_schedule = JSON.stringify(adSet.adset_schedule);
-        }
-        if (adSet.time_based_ad_rotation_id_blocks && adSet.time_based_ad_rotation_id_blocks.length > 0) {
-          adSetParams.time_based_ad_rotation_id_blocks = JSON.stringify(adSet.time_based_ad_rotation_id_blocks);
-        }
-        if (adSet.time_based_ad_rotation_intervals && adSet.time_based_ad_rotation_intervals.length > 0) {
-          adSetParams.time_based_ad_rotation_intervals = JSON.stringify(adSet.time_based_ad_rotation_intervals);
-        }
-
-        // Promotion and attribution
-        if (adSet.promoted_object && Object.keys(adSet.promoted_object).length > 0) {
-          adSetParams.promoted_object = JSON.stringify(adSet.promoted_object);
-        }
-        if (adSet.attribution_spec && Object.keys(adSet.attribution_spec).length > 0) {
-          adSetParams.attribution_spec = JSON.stringify(adSet.attribution_spec);
-        }
-
-        // Optimization and pacing
-        if (adSet.optimization_sub_event) adSetParams.optimization_sub_event = adSet.optimization_sub_event;
-        if (adSet.pacing_type && adSet.pacing_type.length > 0) {
-          adSetParams.pacing_type = JSON.stringify(adSet.pacing_type);
-        }
-        if (adSet.tune_for_category) adSetParams.tune_for_category = adSet.tune_for_category;
-
-        // Frequency and control
-        if (adSet.frequency_control_specs && adSet.frequency_control_specs.length > 0) {
-          adSetParams.frequency_control_specs = JSON.stringify(adSet.frequency_control_specs);
-        }
-
-        // Creative settings
-        if (adSet.creative_sequence && adSet.creative_sequence.length > 0) {
-          adSetParams.creative_sequence = JSON.stringify(adSet.creative_sequence);
-        }
-        if (typeof adSet.is_dynamic_creative === 'boolean') {
-          adSetParams.is_dynamic_creative = adSet.is_dynamic_creative;
-        }
-
-        // Advanced settings
-        if (adSet.destination_type) adSetParams.destination_type = adSet.destination_type;
-        if (adSet.rf_prediction_id) adSetParams.rf_prediction_id = adSet.rf_prediction_id;
-        if (adSet.instagram_actor_id) adSetParams.instagram_actor_id = adSet.instagram_actor_id;
-
-        // Spend controls
-        if (adSet.daily_min_spend_target) adSetParams.daily_min_spend_target = adSet.daily_min_spend_target;
-        if (adSet.daily_spend_cap) adSetParams.daily_spend_cap = adSet.daily_spend_cap;
-        if (adSet.lifetime_min_spend_target) adSetParams.lifetime_min_spend_target = adSet.lifetime_min_spend_target;
-        if (adSet.lifetime_spend_cap) adSetParams.lifetime_spend_cap = adSet.lifetime_spend_cap;
-        if (adSet.lifetime_imps) adSetParams.lifetime_imps = adSet.lifetime_imps;
-
-        // Multi-optimization and advanced features
-        if (adSet.multi_optimization_goal_weight) adSetParams.multi_optimization_goal_weight = adSet.multi_optimization_goal_weight;
-        if (typeof adSet.full_funnel_exploration_mode === 'boolean') {
-          adSetParams.full_funnel_exploration_mode = adSet.full_funnel_exploration_mode;
-        }
-        if (typeof adSet.use_new_app_click === 'boolean') {
-          adSetParams.use_new_app_click = adSet.use_new_app_click;
-        }
-
-        // Labels and execution options
-        if (adSet.adlabels && adSet.adlabels.length > 0) {
-          adSetParams.adlabels = JSON.stringify(adSet.adlabels);
-        }
-        if (adSet.execution_options && adSet.execution_options.length > 0) {
-          adSetParams.execution_options = JSON.stringify(adSet.execution_options);
-        }
-
-        // Recurring budget (if applicable)
-        if (adSet.recurring_budget_semantics && typeof adSet.recurring_budget_semantics === 'boolean') {
-          adSetParams.recurring_budget_semantics = adSet.recurring_budget_semantics;
-        }
-
-        // Log the parameters being sent for debugging
-        console.log(`Creating ad set: ${adSetParams.name}`);
-        console.log('Ad set parameters:', JSON.stringify(adSetParams, null, 2));
-
-        const newAdSetResponse = await axios.post(createAdSetUrl, adSetParams);
-        createdAdSets.push({
+        copiedAdSets.push({
           original_id: adSet.id,
-          new_id: newAdSetResponse.data.id,
-          name: adSetParams.name
+          original_name: adSet.name,
+          new_id: newAdSetId,
+          new_name: adSet.name // Same name, no suffix
         });
 
-        console.log(`✅ Created ad set: ${adSetParams.name} (${newAdSetResponse.data.id})`);
+        console.log(`✅ Copied ad set: ${adSet.name} (${newAdSetId})`);
       } catch (adSetError) {
-        console.error(`❌ Failed to create ad set ${adSet.name}:`, {
-          error: adSetError.response?.data || adSetError.message,
-          originalAdSetId: adSet.id
-        });
+        console.error(`❌ Failed to copy ad set ${adSet.name}:`, adSetError.response?.data || adSetError.message);
         // Continue with other ad sets even if one fails
       }
     }
 
     return res.json({
       copied_campaign_id: newCampaignId,
-      created_adsets: createdAdSets,
-      message: `Campaign duplicated with ${createdAdSets.length} ad sets (no ads copied)`
+      message: `Campaign duplicated with ${copiedAdSets.length} ad sets`
     });
 
   } catch (error) {
-    console.error('Duplicate campaign without ads error:', error.response?.data || error.message);
+    console.error('Duplicate campaign error:', error.response?.data || error.message);
     return res.status(500).json({ error: 'Failed to duplicate campaign' });
   }
 });
+
+// app.post('/auth/duplicate-campaign', async (req, res) => {
+//   const token = req.session.accessToken;
+//   if (!token) return res.status(401).json({ error: 'User not authenticated' });
+
+//   const { campaignId, adAccountId, newCampaignName } = req.body;
+//   if (!campaignId || !adAccountId) {
+//     return res.status(400).json({ error: 'Missing required parameters' });
+//   }
+
+//   try {
+//     // Step 1: Get original campaign details
+//     const campaignDetailsUrl = `https://graph.facebook.com/v21.0/${campaignId}`;
+//     const campaignResponse = await axios.get(campaignDetailsUrl, {
+//       params: {
+//         fields: 'name,objective,status,special_ad_categories,buying_type,budget_rebalance_flag',
+//         access_token: token
+//       }
+//     });
+//     const originalCampaign = campaignResponse.data;
+
+//     // Step 2: Create new campaign (copy structure only)
+//     const createCampaignUrl = `https://graph.facebook.com/v21.0/act_${adAccountId}/campaigns`;
+//     const newCampaignParams = {
+//       name: newCampaignName || (originalCampaign.name + '_02'),
+//       objective: originalCampaign.objective,
+//       status: 'PAUSED',
+//       special_ad_categories: originalCampaign.special_ad_categories,
+//       buying_type: originalCampaign.buying_type,
+//       access_token: token
+//     };
+
+//     const newCampaignResponse = await axios.post(createCampaignUrl, newCampaignParams);
+//     const newCampaignId = newCampaignResponse.data.id;
+
+//     // Step 3: Get original ad sets with ALL possible fields
+//     const adSetsUrl = `https://graph.facebook.com/v21.0/${campaignId}/adsets`;
+//     const adSetsResponse = await axios.get(adSetsUrl, {
+//       params: {
+//         fields: 'id,name,account_id,adlabels,adset_schedule,attribution_spec,bid_adjustments,bid_amount,bid_constraints,bid_info,bid_strategy,billing_event,budget_remaining,campaign,campaign_id,configured_status,created_time,creative_sequence,daily_budget,daily_min_spend_target,daily_spend_cap,destination_type,effective_status,end_time,frequency_control_specs,full_funnel_exploration_mode,instagram_actor_id,is_dynamic_creative,issues_info,learning_stage_info,lifetime_budget,lifetime_imps,lifetime_min_spend_target,lifetime_spend_cap,multi_optimization_goal_weight,name,optimization_goal,optimization_sub_event,pacing_type,promoted_object,recommendations,recurring_budget_semantics,review_feedback,rf_prediction_id,source_adset,source_adset_id,start_time,status,targeting,time_based_ad_rotation_id_blocks,time_based_ad_rotation_intervals,tune_for_category,updated_time,use_new_app_click,campaign_spec,daily_imps,date_format,execution_options,line_number,rb_prediction_id,time_start,time_stop',
+//         access_token: token
+//       }
+//     });
+
+//     const originalAdSets = adSetsResponse.data.data;
+//     const createdAdSets = [];
+
+//     // Step 4: Recreate each ad set in the new campaign
+//     for (const adSet of originalAdSets) {
+//       try {
+//         const createAdSetUrl = `https://graph.facebook.com/v21.0/act_${adAccountId}/adsets`;
+
+//         // Prepare ad set creation parameters with all possible fields
+//         const adSetParams = {
+//           name: adSet.name + '_02',
+//           campaign_id: newCampaignId,
+//           status: 'PAUSED', // Always start paused for safety
+//           access_token: token
+//         };
+
+//         // Core required fields
+//         if (adSet.optimization_goal) adSetParams.optimization_goal = adSet.optimization_goal;
+//         if (adSet.billing_event) adSetParams.billing_event = adSet.billing_event;
+//         if (adSet.targeting) adSetParams.targeting = JSON.stringify(adSet.targeting);
+
+//         // Budget fields (mutually exclusive - daily OR lifetime)
+//         if (adSet.daily_budget) {
+//           adSetParams.daily_budget = adSet.daily_budget;
+//         } else if (adSet.lifetime_budget) {
+//           adSetParams.lifetime_budget = adSet.lifetime_budget;
+//         }
+
+//         // Bidding fields
+//         if (adSet.bid_amount) adSetParams.bid_amount = adSet.bid_amount;
+//         if (adSet.bid_strategy) adSetParams.bid_strategy = adSet.bid_strategy;
+//         if (adSet.bid_constraints && Object.keys(adSet.bid_constraints).length > 0) {
+//           adSetParams.bid_constraints = JSON.stringify(adSet.bid_constraints);
+//         }
+//         if (adSet.bid_adjustments && Object.keys(adSet.bid_adjustments).length > 0) {
+//           adSetParams.bid_adjustments = JSON.stringify(adSet.bid_adjustments);
+//         }
+
+//         // Time scheduling
+//         if (adSet.start_time) adSetParams.start_time = adSet.start_time;
+//         if (adSet.end_time) adSetParams.end_time = adSet.end_time;
+//         if (adSet.adset_schedule && adSet.adset_schedule.length > 0) {
+//           adSetParams.adset_schedule = JSON.stringify(adSet.adset_schedule);
+//         }
+//         if (adSet.time_based_ad_rotation_id_blocks && adSet.time_based_ad_rotation_id_blocks.length > 0) {
+//           adSetParams.time_based_ad_rotation_id_blocks = JSON.stringify(adSet.time_based_ad_rotation_id_blocks);
+//         }
+//         if (adSet.time_based_ad_rotation_intervals && adSet.time_based_ad_rotation_intervals.length > 0) {
+//           adSetParams.time_based_ad_rotation_intervals = JSON.stringify(adSet.time_based_ad_rotation_intervals);
+//         }
+
+//         // Promotion and attribution
+//         if (adSet.promoted_object && Object.keys(adSet.promoted_object).length > 0) {
+//           adSetParams.promoted_object = JSON.stringify(adSet.promoted_object);
+//         }
+//         if (adSet.attribution_spec && Object.keys(adSet.attribution_spec).length > 0) {
+//           adSetParams.attribution_spec = JSON.stringify(adSet.attribution_spec);
+//         }
+
+//         // Optimization and pacing
+//         if (adSet.optimization_sub_event) adSetParams.optimization_sub_event = adSet.optimization_sub_event;
+//         if (adSet.pacing_type && adSet.pacing_type.length > 0) {
+//           adSetParams.pacing_type = JSON.stringify(adSet.pacing_type);
+//         }
+//         if (adSet.tune_for_category) adSetParams.tune_for_category = adSet.tune_for_category;
+
+//         // Frequency and control
+//         if (adSet.frequency_control_specs && adSet.frequency_control_specs.length > 0) {
+//           adSetParams.frequency_control_specs = JSON.stringify(adSet.frequency_control_specs);
+//         }
+
+//         // Creative settings
+//         if (adSet.creative_sequence && adSet.creative_sequence.length > 0) {
+//           adSetParams.creative_sequence = JSON.stringify(adSet.creative_sequence);
+//         }
+//         if (typeof adSet.is_dynamic_creative === 'boolean') {
+//           adSetParams.is_dynamic_creative = adSet.is_dynamic_creative;
+//         }
+
+//         // Advanced settings
+//         if (adSet.destination_type) adSetParams.destination_type = adSet.destination_type;
+//         if (adSet.rf_prediction_id) adSetParams.rf_prediction_id = adSet.rf_prediction_id;
+//         if (adSet.instagram_actor_id) adSetParams.instagram_actor_id = adSet.instagram_actor_id;
+
+//         // Spend controls
+//         if (adSet.daily_min_spend_target) adSetParams.daily_min_spend_target = adSet.daily_min_spend_target;
+//         if (adSet.daily_spend_cap) adSetParams.daily_spend_cap = adSet.daily_spend_cap;
+//         if (adSet.lifetime_min_spend_target) adSetParams.lifetime_min_spend_target = adSet.lifetime_min_spend_target;
+//         if (adSet.lifetime_spend_cap) adSetParams.lifetime_spend_cap = adSet.lifetime_spend_cap;
+//         if (adSet.lifetime_imps) adSetParams.lifetime_imps = adSet.lifetime_imps;
+
+//         // Multi-optimization and advanced features
+//         if (adSet.multi_optimization_goal_weight) adSetParams.multi_optimization_goal_weight = adSet.multi_optimization_goal_weight;
+//         if (typeof adSet.full_funnel_exploration_mode === 'boolean') {
+//           adSetParams.full_funnel_exploration_mode = adSet.full_funnel_exploration_mode;
+//         }
+//         if (typeof adSet.use_new_app_click === 'boolean') {
+//           adSetParams.use_new_app_click = adSet.use_new_app_click;
+//         }
+
+//         // Labels and execution options
+//         if (adSet.adlabels && adSet.adlabels.length > 0) {
+//           adSetParams.adlabels = JSON.stringify(adSet.adlabels);
+//         }
+//         if (adSet.execution_options && adSet.execution_options.length > 0) {
+//           adSetParams.execution_options = JSON.stringify(adSet.execution_options);
+//         }
+
+//         // Recurring budget (if applicable)
+//         if (adSet.recurring_budget_semantics && typeof adSet.recurring_budget_semantics === 'boolean') {
+//           adSetParams.recurring_budget_semantics = adSet.recurring_budget_semantics;
+//         }
+
+//         // Log the parameters being sent for debugging
+//         console.log(`Creating ad set: ${adSetParams.name}`);
+//         console.log('Ad set parameters:', JSON.stringify(adSetParams, null, 2));
+
+//         const newAdSetResponse = await axios.post(createAdSetUrl, adSetParams);
+//         createdAdSets.push({
+//           original_id: adSet.id,
+//           new_id: newAdSetResponse.data.id,
+//           name: adSetParams.name
+//         });
+
+//         console.log(`✅ Created ad set: ${adSetParams.name} (${newAdSetResponse.data.id})`);
+//       } catch (adSetError) {
+//         console.error(`❌ Failed to create ad set ${adSet.name}:`, {
+//           error: adSetError.response?.data || adSetError.message,
+//           originalAdSetId: adSet.id
+//         });
+//         // Continue with other ad sets even if one fails
+//       }
+//     }
+
+//     return res.json({
+//       copied_campaign_id: newCampaignId,
+//       created_adsets: createdAdSets,
+//       message: `Campaign duplicated with ${createdAdSets.length} ad sets (no ads copied)`
+//     });
+
+//   } catch (error) {
+//     console.error('Duplicate campaign without ads error:', error.response?.data || error.message);
+//     return res.status(500).json({ error: 'Failed to duplicate campaign' });
+//   }
+// });
 
 
 app.post('/auth/duplicate-adset', async (req, res) => {
