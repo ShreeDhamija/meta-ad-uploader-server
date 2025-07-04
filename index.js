@@ -1041,7 +1041,8 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       creative: {
         object_story_spec: {
           page_id: pageId,
-          ...(instagramAccountId && { instagram_user_id: instagramAccountId })
+          //...(instagramAccountId && { instagram_user_id: instagramAccountId })
+          instagram_user_id: instagramAccountId,
         },
         ...(urlTags && { url_tags: urlTags }),
         asset_feed_spec: {
@@ -1063,19 +1064,41 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       status: adStatus
     };
   } else { // Non-Dynamic
+
+    const hasMultipleTextOptions = headlines.length > 1 || messagesArray.length > 1 || descriptionsArray.length > 1;
+    // const creativePart = {
+    //   object_story_spec: {
+    //     page_id: pageId,
+    //     //...(instagramAccountId && { instagram_user_id: instagramAccountId })
+    //     instagram_user_id: instagramAccountId,
+    //     link_data: {
+    //       name: headlines[0],
+    //       description: descriptionsArray[0],
+    //       call_to_action: { type: cta, value: { link } },
+    //       message: messagesArray[0],
+    //       link: link,
+    //       caption: link,
+    //       image_hash: imageHash,
+    //     },
+    //   },
+    //   ...(urlTags && { url_tags: urlTags }),
+    //   degrees_of_freedom_spec: {
+    //     creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
+    //   },
+    // };
     const creativePart = {
       object_story_spec: {
         page_id: pageId,
         ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
         link_data: {
-          name: headlines[0],
-          description: descriptionsArray[0],
+          ...(headlines.length === 1 && { name: headlines[0] }),
+          ...(descriptionsArray.length === 1 && { description: descriptionsArray[0] }),
           call_to_action: { type: cta, value: { link } },
-          message: messagesArray[0],
+          ...(messagesArray.length === 1 && { message: messagesArray[0] }),
           link: link,
           caption: link,
           image_hash: imageHash,
-        },
+        }
       },
       ...(urlTags && { url_tags: urlTags }),
       degrees_of_freedom_spec: {
@@ -1083,9 +1106,25 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       },
     };
 
-    if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
-      creativePart.asset_feed_spec = shopDestinationFieldsForAssetFeed;
+    // if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
+    //   creativePart.asset_feed_spec = shopDestinationFieldsForAssetFeed;
+    // }
+    let assetFeedSpec = { ...shopDestinationFieldsForAssetFeed };
+    if (hasMultipleTextOptions) {
+      assetFeedSpec = {
+        ...assetFeedSpec,
+        ...(headlines.length > 1 && { titles: headlines.map(text => ({ text })) }),
+        ...(messagesArray.length > 1 && { bodies: messagesArray.map(text => ({ text })) }),
+        ...(descriptionsArray.length > 1 && { descriptions: descriptionsArray.map(text => ({ text })) }),
+        optimization_type: "DEGREES_OF_FREEDOM"
+      };
     }
+
+    // Add asset_feed_spec if it has content
+    if (Object.keys(assetFeedSpec).length > 0) {
+      creativePart.asset_feed_spec = assetFeedSpec;
+    }
+
     console.log(util.inspect(creativePart, { depth: null, colors: true }));
     return {
       name: adName,
@@ -1130,7 +1169,7 @@ async function handleVideoAd(
     // Handle S3 video URL - let Meta download directly!
     console.log("📤 Processing S3 video URL:", s3VideoUrl)
     if (progressTracker) {
-      progressTracker.setProgress(jobId, 40, `Uploading video:...`);
+      progressTracker.setProgress(jobId, 40, `Processing video:...`);
     }
     console.log(progressTracker);
     console.log('✅ Progress set to 40% for jobId:', jobId);
@@ -1165,7 +1204,7 @@ async function handleVideoAd(
     if (!file) throw new Error("Video file is required")
 
     if (progressTracker) {
-      progressTracker.setProgress(jobId, 40, `Uploading video: ${file.originalname}...`);
+      progressTracker.setProgress(jobId, 40, `Processing video: ${file.originalname}...`);
     }
     console.log("📤 Uploading video to Meta...")
     console.log(`🗂️ Video file "${file.originalname}": ${file.size} bytes`)
@@ -1411,6 +1450,7 @@ app.post(
     if (!token) return res.status(401).json({ error: 'User not authenticated' });
     console.log("create-ad reached");
 
+    //Progress Tracking
     const jobId = req.body.jobId;
     console.log('🔍 Initial jobId:', jobId, typeof jobId);
     console.log('🔍 Full req.body:', req.body);
@@ -2535,7 +2575,7 @@ async function handleDynamicVideoAd(
 
       if (progressTracker) {
         currentProgress += 10;
-        progressTracker.setProgress(jobId, currentProgress, `Uploading video: ${file.originalname}`);
+        progressTracker.setProgress(jobId, currentProgress, `Processing video: ${file.originalname}`);
       }
       const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
         headers: videoFormData.getHeaders(),
