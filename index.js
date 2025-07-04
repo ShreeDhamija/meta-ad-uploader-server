@@ -949,7 +949,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
   }
 
   if (useDynamicCreative) {
-    console.log("THIS SHOULD NOT RUN video");
+    console.log("THIS SHOULD NOT RUN VIDEO");
     return {
       name: adName,
       adset_id: adSetId,
@@ -989,20 +989,19 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       object_story_spec: {
         page_id: pageId,
         ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
-        link_data: {
-          ...(headlines.length === 1 && { name: headlines[0] }),
-          ...(descriptionsArray.length === 1 && { description: descriptionsArray[0] }),
+        video_data: {
+          video_id: videoId,
           call_to_action: { type: cta, value: { link } },
           ...(messagesArray.length === 1 && { message: messagesArray[0] }),
-          link: link,
-          caption: link,
-          image_hash: imageHash,
+          ...(headlines.length === 1 && { title: headlines[0] }),
+          link_description: descriptionsArray[0],
+          ...(thumbnailHash ? { image_hash: thumbnailHash } : { image_url: thumbnailUrl })
         }
       },
       ...(urlTags && { url_tags: urlTags }),
       degrees_of_freedom_spec: {
         creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
-      },
+      }
     };
 
     // if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
@@ -1089,7 +1088,6 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
   } else { // Non-Dynamic
 
     const hasMultipleTextOptions = headlines.length > 1 || messagesArray.length > 1 || descriptionsArray.length > 1;
-
     const creativePart = {
       object_story_spec: {
         page_id: pageId,
