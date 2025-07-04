@@ -532,7 +532,6 @@ app.get('/auth/fetch-adsets', async (req, res) => {
 //   }
 // });
 
-
 app.post('/auth/duplicate-campaign', async (req, res) => {
   const token = req.session.accessToken;
   if (!token) return res.status(401).json({ error: 'User not authenticated' });
@@ -543,31 +542,34 @@ app.post('/auth/duplicate-campaign', async (req, res) => {
   }
 
   try {
-    // Step 1: Get original campaign details
-    const campaignDetailsUrl = `https://graph.facebook.com/v21.0/${campaignId}`;
-    const campaignResponse = await axios.get(campaignDetailsUrl, {
-      params: {
-        fields: 'name,objective,status,special_ad_categories,buying_type,budget_rebalance_flag',
-        access_token: token
-      }
-    });
-    const originalCampaign = campaignResponse.data;
-
-    // Step 2: Create new campaign (structure only, no deep copy)
-    const createCampaignUrl = `https://graph.facebook.com/v21.0/${adAccountId}/campaigns`;
-    const newCampaignParams = {
-      name: newCampaignName || (originalCampaign.name + '_02'),
-      objective: originalCampaign.objective,
-      status: 'INHERITED_FROM_SOURCE',
-      special_ad_categories: originalCampaign.special_ad_categories,
-      buying_type: originalCampaign.buying_type,
-      access_token: token
+    // Step 1: Duplicate the campaign using Facebook's copy API
+    const copyCampaignUrl = `https://graph.facebook.com/v23.0/${campaignId}/copies`;
+    const campaignCopyParams = {
+      rename_options: JSON.stringify({ rename_suffix: '_02' }),
+      access_token: token,
+      status_option: "INHERITED_FROM_SOURCE"
     };
 
-    const newCampaignResponse = await axios.post(createCampaignUrl, newCampaignParams);
-    const newCampaignId = newCampaignResponse.data.id;
+    const campaignCopyResponse = await axios.post(copyCampaignUrl, null, { params: campaignCopyParams });
+    const newCampaignId = campaignCopyResponse.data.copied_campaign_id;
 
-    console.log(`✅ Created new campaign: ${newCampaignParams.name} (${newCampaignId})`);
+    console.log(`✅ Created new campaign copy: (${newCampaignId})`);
+
+    // Step 2: Update the campaign name if newCampaignName is provided
+    if (newCampaignName && newCampaignName.trim() !== '') {
+      const updateUrl = `https://graph.facebook.com/v21.0/${newCampaignId}`;
+      const updateParams = {
+        name: newCampaignName.trim(),
+        access_token: token,
+      };
+
+      try {
+        await axios.post(updateUrl, null, { params: updateParams });
+        console.log(`Campaign ${newCampaignId} renamed to: ${newCampaignName.trim()}`);
+      } catch (updateError) {
+        console.error('Failed to update campaign name:', updateError.response?.data || updateError.message);
+      }
+    }
 
     // Step 3: Get all ad sets from original campaign
     const adSetsUrl = `https://graph.facebook.com/v21.0/${campaignId}/adsets`;
