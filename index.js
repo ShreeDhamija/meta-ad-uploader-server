@@ -1187,9 +1187,10 @@ async function handleVideoAd(
       })
 
       videoId = videoUploadResponse.data.id
+      await waitForVideoProcessing(videoId, token)
       console.log("✅ S3 Video uploaded to Meta via file_url. Video ID:", videoId)
       if (progressTracker) {
-        progressTracker.setProgress(jobId, 60, 'Video uploaded, processing...');
+        progressTracker.setProgress(jobId, 60, 'Video Processed...');
       }
 
       // Mark S3 file for cleanup in the finally block
