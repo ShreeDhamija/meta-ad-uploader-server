@@ -118,7 +118,23 @@ function buildCreativeEnhancementsConfig(firestoreSettings = {}) {
     },
     video_auto_crop: {
       enroll_status: firestoreSettings.visual ? "OPT_IN" : "OPT_OUT"
+    },
+    inline_comment: {
+      enroll_status: firestoreSettings.comments ? "OPT_IN" : "OPT_OUT"
+    },
+    image_background_gen: {
+      enroll_status: firestoreSettings.backgroundGen ? "OPT_IN" : "OPT_OUT"
+    },
+    image_uncrop: {
+      enroll_status: firestoreSettings.expandImage ? "OPT_IN" : "OPT_OUT"
+    },
+    product_extensions: {
+      enroll_status: firestoreSettings.catalogItems ? "OPT_IN" : "OPT_OUT"
+    },
+    text_generation: {
+      enroll_status: firestoreSettings.textGeneration ? "OPT_IN" : "OPT_OUT"
     }
+
   }
 }
 
