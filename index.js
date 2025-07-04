@@ -949,6 +949,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
   }
 
   if (useDynamicCreative) {
+    console.log("THIS SHOULD NOT RUN video");
     return {
       name: adName,
       adset_id: adSetId,
@@ -983,28 +984,49 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       status: adStatus
     };
   } else { // Non-Dynamic
+    const hasMultipleTextOptions = headlines.length > 1 || messagesArray.length > 1 || descriptionsArray.length > 1;
     const creativePart = {
       object_story_spec: {
         page_id: pageId,
         ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
-        video_data: {
-          video_id: videoId,
+        link_data: {
+          ...(headlines.length === 1 && { name: headlines[0] }),
+          ...(descriptionsArray.length === 1 && { description: descriptionsArray[0] }),
           call_to_action: { type: cta, value: { link } },
-          message: messagesArray[0],
-          title: headlines[0],
-          link_description: descriptionsArray[0],
-          ...(thumbnailHash ? { image_hash: thumbnailHash } : { image_url: thumbnailUrl })
+          ...(messagesArray.length === 1 && { message: messagesArray[0] }),
+          link: link,
+          caption: link,
+          image_hash: imageHash,
         }
       },
       ...(urlTags && { url_tags: urlTags }),
       degrees_of_freedom_spec: {
         creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
-      }
+      },
     };
 
-    if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
-      creativePart.asset_feed_spec = shopDestinationFieldsForAssetFeed;
+    // if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
+    //   creativePart.asset_feed_spec = shopDestinationFieldsForAssetFeed;
+    // }
+
+    let assetFeedSpec = { ...shopDestinationFieldsForAssetFeed };
+
+    if (hasMultipleTextOptions) {
+      assetFeedSpec = {
+        ...assetFeedSpec,
+        ...(headlines.length > 1 && { titles: headlines.map(text => ({ text })) }),
+        ...(messagesArray.length > 1 && { bodies: messagesArray.map(text => ({ text })) }),
+        ...(descriptionsArray.length > 1 && { descriptions: descriptionsArray.map(text => ({ text })) }),
+        optimization_type: "DEGREES_OF_FREEDOM"
+      };
     }
+
+    // Add asset_feed_spec if it has content
+    if (Object.keys(assetFeedSpec).length > 0) {
+      creativePart.asset_feed_spec = assetFeedSpec;
+    }
+
+
 
     return {
       name: adName,
@@ -1035,6 +1057,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
   }
 
   if (useDynamicCreative) {
+    console.log("THIS SHOULD NOT RUN");
     return {
       name: adName,
       adset_id: adSetId,
@@ -1066,26 +1089,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
   } else { // Non-Dynamic
 
     const hasMultipleTextOptions = headlines.length > 1 || messagesArray.length > 1 || descriptionsArray.length > 1;
-    // const creativePart = {
-    //   object_story_spec: {
-    //     page_id: pageId,
-    //     //...(instagramAccountId && { instagram_user_id: instagramAccountId })
-    //     instagram_user_id: instagramAccountId,
-    //     link_data: {
-    //       name: headlines[0],
-    //       description: descriptionsArray[0],
-    //       call_to_action: { type: cta, value: { link } },
-    //       message: messagesArray[0],
-    //       link: link,
-    //       caption: link,
-    //       image_hash: imageHash,
-    //     },
-    //   },
-    //   ...(urlTags && { url_tags: urlTags }),
-    //   degrees_of_freedom_spec: {
-    //     creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
-    //   },
-    // };
+
     const creativePart = {
       object_story_spec: {
         page_id: pageId,
