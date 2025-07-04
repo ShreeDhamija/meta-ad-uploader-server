@@ -122,9 +122,6 @@ function buildCreativeEnhancementsConfig(firestoreSettings = {}) {
     inline_comment: {
       enroll_status: firestoreSettings.comments ? "OPT_IN" : "OPT_OUT"
     },
-    image_background_gen: {
-      enroll_status: firestoreSettings.backgroundGen ? "OPT_IN" : "OPT_OUT"
-    },
     image_uncrop: {
       enroll_status: firestoreSettings.expandImage ? "OPT_IN" : "OPT_OUT"
     },
