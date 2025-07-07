@@ -1667,9 +1667,7 @@ app.post(
 
       if (isCarouselAd) {
         // Carousel ads cannot be dynamic (for now)
-        if (useDynamicCreative) {
-          return res.status(400).json({ error: 'Carousel ads cannot use dynamic creative' });
-        }
+
 
         // Validate carousel requirements
         const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
@@ -2543,7 +2541,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     titles: headlines.map(text => ({ text })),
     bodies: messagesArray.map(text => ({ text })),
     descriptions: descriptionsArray.map(text => ({ text })),
-    ad_formats: isCarouselAd ? ["CAROUSEL"] : ["SINGLE_VIDEO"],
+    ad_formats: isCarouselAd ? ["CAROUSEL"] : ["SINGLE_IMAGE"],
     call_to_action_types: [cta],
     link_urls: [{ website_url: link }],
     ...shopDestinationFields // Apply shop spec
