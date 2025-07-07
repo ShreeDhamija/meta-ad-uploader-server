@@ -1730,7 +1730,8 @@ app.post(
             shopDestinationType,
             adStatus,
             s3VideoUrls, // Pass S3 URLs
-            progressContext
+            progressContext,
+            isCarouselAd
 
           );
         } else {
@@ -1752,7 +1753,8 @@ app.post(
             shopDestination,
             shopDestinationType,
             adStatus,
-            progressContext
+            progressContext,
+            isCarouselAd
           );
         }
       } else {
@@ -2494,7 +2496,7 @@ async function fetchRecentAds(adAccountId, token) {
 
 
 // Helper: Process multiple images for dynamic creative.
-async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus, progressContext = null) {
+async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus, progressContext = null, isCarouselAd) {
   const mediaFiles = req.files.mediaFiles;
   let imageHashes = [];
   const { jobId, progressTracker } = progressContext || {};
@@ -2541,7 +2543,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     titles: headlines.map(text => ({ text })),
     bodies: messagesArray.map(text => ({ text })),
     descriptions: descriptionsArray.map(text => ({ text })),
-    ad_formats: ["SINGLE_IMAGE"],
+    ad_formats: isCarouselAd ? ["CAROUSEL"] : ["SINGLE_VIDEO"],
     call_to_action_types: [cta],
     link_urls: [{ website_url: link }],
     ...shopDestinationFields // Apply shop spec
@@ -2600,7 +2602,8 @@ async function handleDynamicVideoAd(
   shopDestinationType,
   adStatus,
   s3VideoUrls = [],
-  progressContext = null
+  progressContext = null,
+  isCarouselAd
 
 ) {
   const mediaFiles = req.files.mediaFiles || []
@@ -2776,7 +2779,7 @@ async function handleDynamicVideoAd(
     titles: headlines.map((text) => ({ text })),
     bodies: messagesArray.map((text) => ({ text })),
     descriptions: descriptionsArray.map((text) => ({ text })),
-    ad_formats: ["SINGLE_VIDEO"],
+    ad_formats: isCarouselAd ? ["CAROUSEL"] : ["SINGLE_VIDEO"],
     call_to_action_types: [cta],
     link_urls: [{ website_url: link }],
     ...shopDestinationFields,
