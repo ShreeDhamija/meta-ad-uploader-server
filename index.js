@@ -10,7 +10,6 @@ const fs = require('fs');
 const path = require('path');
 const app = express();
 const { db } = require("./firebase");
-const util = require('util');
 const {
   createOrUpdateUser,
   getUserByFacebookId,
@@ -1142,7 +1141,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       creativePart.asset_feed_spec = assetFeedSpec;
     }
 
-    console.log(util.inspect(creativePart, { depth: null, colors: true }));
+
     return {
       name: adName,
       adset_id: adSetId,
@@ -1431,7 +1430,7 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
     shopDestinationType,
     adStatus
   });
-  // console.log(util.inspect(creativePayload, { depth: null, colors: true }));
+
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await retryWithBackoff(() =>
     axios.post(createAdUrl, creativePayload, {
@@ -1504,6 +1503,8 @@ app.post(
       const descriptionsArray = parseField(req.body.descriptions, req.body.description);
       const messagesArray = parseField(req.body.messages, req.body.message);
       const adStatus = launchPaused === 'true' ? 'PAUSED' : 'ACTIVE';
+      const isCarouselAd = req.body.isCarouselAd === 'true';
+
 
 
       // Parse S3 URLs for dynamic creative
@@ -1660,7 +1661,37 @@ app.post(
 
       let result;
       // For dynamic ad creative, use the aggregated media fields.
-      if (useDynamicCreative) {
+
+
+
+
+      if (isCarouselAd) {
+        // Carousel ads cannot be dynamic (for now)
+        if (useDynamicCreative) {
+          return res.status(400).json({ error: 'Carousel ads cannot use dynamic creative' });
+        }
+
+        // Validate carousel requirements
+        const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
+        const singleFile = req.files.imageFile && req.files.imageFile[0];
+        const totalFiles = mediaFiles.length + (singleFile ? 1 : 0) + s3VideoUrls.length;
+
+        if (totalFiles < 2) {
+          return res.status(400).json({ error: 'Carousel ads require at least 2 files' });
+        }
+        if (totalFiles > 10) {
+          return res.status(400).json({ error: 'Carousel ads can have maximum 10 cards' });
+        }
+
+        result = await handleCarouselAd(
+          req, token, adAccountId, adSetId, pageId, adName, cta, link,
+          headlines, messagesArray, descriptionsArray, instagramAccountId,
+          urlTags, creativeEnhancements, shopDestination, shopDestinationType,
+          adStatus, s3VideoUrls, progressContext
+        );
+
+      } else if (useDynamicCreative) {
+
         // Expect the aggregated files to be in req.files.mediaFiles
         const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
         const hasS3Videos = s3VideoUrls.length > 0
@@ -2802,6 +2833,154 @@ async function handleDynamicVideoAd(
   }
 }
 
+
+async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus, s3VideoUrls = [], progressContext = null) {
+
+  const { jobId, progressTracker } = progressContext || {};
+
+  // Handle local files
+  const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
+  const singleFile = req.files.imageFile && req.files.imageFile[0];
+  if (singleFile) mediaFiles.push(singleFile);
+
+  // Upload all media files and get their hashes/video IDs
+  const carouselCards = [];
+  let progressStep = 0;
+  const totalFiles = mediaFiles.length + (s3VideoUrls?.length || 0);
+
+  // Process local files
+  for (let i = 0; i < mediaFiles.length; i++) {
+    const file = mediaFiles[i];
+    progressStep++;
+
+    if (progressTracker) {
+      const progressPercent = 20 + Math.round((progressStep / totalFiles) * 60);
+      progressTracker.setProgress(jobId, progressPercent, `Processing file ${progressStep}/${totalFiles}: ${file.originalname}...`);
+    }
+
+    if (file.mimetype.startsWith('video/')) {
+      // Upload video
+      const videoUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
+      const formData = new FormData();
+      formData.append('access_token', token);
+      formData.append('source', fs.createReadStream(file.path), {
+        filename: file.originalname,
+        contentType: file.mimetype
+      });
+
+      const videoResponse = await axios.post(videoUploadUrl, formData, {
+        headers: formData.getHeaders()
+      });
+
+      carouselCards.push({
+        video_id: videoResponse.data.id,
+        name: headlines[i] || `Card ${i + 1}`,
+        description: descriptionsArray[i] || messagesArray[i] || '',
+        call_to_action: { type: cta, value: { link } }
+      });
+    } else {
+      // Upload image
+      const imageUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+      const formData = new FormData();
+      formData.append('access_token', token);
+      formData.append('file', fs.createReadStream(file.path), {
+        filename: file.originalname,
+        contentType: file.mimetype
+      });
+
+      const imageResponse = await axios.post(imageUploadUrl, formData, {
+        headers: formData.getHeaders()
+      });
+
+      const imagesInfo = imageResponse.data.images;
+      const filenameKey = Object.keys(imagesInfo)[0];
+      const imageHash = imagesInfo[filenameKey].hash;
+
+      carouselCards.push({
+        picture: imageHash,
+        name: headlines[i] || `Card ${i + 1}`,
+        description: descriptionsArray[i] || messagesArray[i] || '',
+        call_to_action: { type: cta, value: { link } }
+      });
+    }
+
+    // Clean up file
+    fs.unlink(file.path, err => {
+      if (err) console.error("Error deleting file:", err);
+    });
+  }
+
+  // Process S3 video URLs
+  if (s3VideoUrls && s3VideoUrls.length > 0) {
+    for (let i = 0; i < s3VideoUrls.length; i++) {
+      const s3Url = s3VideoUrls[i];
+      progressStep++;
+
+      if (progressTracker) {
+        const progressPercent = 20 + Math.round((progressStep / totalFiles) * 60);
+        progressTracker.setProgress(jobId, progressPercent, `Processing S3 video ${progressStep}/${totalFiles}...`);
+      }
+
+      // Create video from S3 URL
+      const videoUploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
+      const videoPayload = {
+        access_token: token,
+        file_url: s3Url
+      };
+
+      const videoResponse = await axios.post(videoUploadUrl, videoPayload);
+      const cardIndex = mediaFiles.length + i;
+
+      carouselCards.push({
+        video_id: videoResponse.data.id,
+        name: headlines[cardIndex] || `Card ${cardIndex + 1}`,
+        description: descriptionsArray[cardIndex] || messagesArray[cardIndex] || '',
+        call_to_action: { type: cta, value: { link } }
+      });
+    }
+  }
+
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 85, 'Creating carousel ad...');
+  }
+
+  // Build carousel creative payload
+  const carouselPayload = {
+    name: adName,
+    adset_id: adSetId,
+    creative: {
+      object_story_spec: {
+        page_id: pageId,
+        ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+        link_data: {
+          link: link,
+          child_attachments: carouselCards,
+          caption: link,
+          call_to_action: { type: cta, value: { link } }
+        }
+      },
+      ...(urlTags && { url_tags: urlTags }),
+      degrees_of_freedom_spec: {
+        creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
+      }
+    },
+    status: adStatus
+  };
+
+  // Create the carousel ad
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+  const createAdResponse = await retryWithBackoff(() =>
+    axios.post(createAdUrl, carouselPayload, {
+      params: { access_token: token }
+    })
+  );
+
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 95, 'Carousel ad created successfully!');
+  }
+
+  return createAdResponse.data;
+}
 
 
 const PORT = process.env.PORT || 3000;
