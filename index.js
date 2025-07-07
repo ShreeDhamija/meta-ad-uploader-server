@@ -2970,6 +2970,7 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
       ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
       link_data: {
         link: link,
+        call_to_action: { type: cta }, // ADD THIS LINE
         child_attachments: carouselCards
       }
     },
