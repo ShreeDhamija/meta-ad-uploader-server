@@ -2872,11 +2872,29 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
         headers: formData.getHeaders()
       });
 
+      let thumbnailUrl;
+      try {
+        console.log("🎬 Getting Meta-generated thumbnail for video:", videoResponse.data.id);
+        thumbnailUrl = await getMetaVideoThumbnail(videoResponse.data.id, token);
+
+        if (thumbnailUrl) {
+          console.log("✅ Using Meta-generated thumbnail:", thumbnailUrl);
+        } else {
+          // Fallback to static URL
+          thumbnailUrl = "https://api.withblip.com/thumbnail.jpg";
+          console.log("⚠️ Using fallback thumbnail URL");
+        }
+      } catch (err) {
+        console.error("❌ Failed to get Meta thumbnail:", err.message);
+        thumbnailUrl = "https://api.withblip.com/thumbnail.jpg";
+      }
+
       carouselCards.push({
         name: headlines[i] || `Card ${i + 1}`,
         description: descriptionsArray[i] || messagesArray[i] || '',
         link: link, // Each card uses the same link for now
-        video_id: videoResponse.data.id
+        video_id: videoResponse.data.id,
+        picture: thumbnailUrl
       });
     } else {
       // Upload image
