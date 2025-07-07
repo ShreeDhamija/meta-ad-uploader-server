@@ -1615,6 +1615,76 @@ app.post(
         }
       }
 
+      // Handle multiple Google Drive files for CAROUSEL ad sets (add this new block)
+      if (!useDynamicCreative && isCarouselAd && req.body.driveFiles) {
+        try {
+          console.log('Processing Google Drive files for carousel ad...');
+          progressTracker.setProgress(jobId, 15, 'Processing Google Drive files for carousel...');
+
+          req.files = req.files || {};
+          req.files.mediaFiles = req.files.mediaFiles || [];
+
+          const driveFiles = [];
+          if (Array.isArray(req.body.driveFiles)) {
+            for (const fileJson of req.body.driveFiles) {
+              try {
+                driveFiles.push(JSON.parse(fileJson));
+              } catch (e) {
+                console.error("Error parsing drive file JSON:", e);
+                progressTracker.errorJob(jobId, 'Error parsing drive file');
+              }
+            }
+          } else {
+            try {
+              driveFiles.push(JSON.parse(req.body.driveFiles));
+            } catch (e) {
+              console.error("Error parsing drive file JSON:", e);
+              progressTracker.errorJob(jobId, 'Error parsing drive file');
+            }
+          }
+
+          for (const driveFile of driveFiles) {
+            try {
+              console.log(`Processing drive file for carousel ad: ${driveFile.name}`);
+              const fileRes = await axios({
+                url: `https://www.googleapis.com/drive/v3/files/${driveFile.id}?alt=media`,
+                method: 'GET',
+                responseType: 'stream',
+                headers: { Authorization: `Bearer ${driveFile.accessToken}` },
+              });
+
+              const tempDir = path.resolve(__dirname, 'tmp');
+              if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+              const extension = driveFile.mimeType.startsWith('video/') ? '.mp4' : '.jpg';
+              const tempPath = path.join(tempDir, `${uuidv4()}-${driveFile.name}${extension}`);
+
+              const writer = fs.createWriteStream(tempPath);
+              fileRes.data.pipe(writer);
+              await new Promise((resolve) => writer.on('finish', resolve));
+
+              const fakeFile = {
+                path: tempPath,
+                mimetype: driveFile.mimeType,
+                originalname: driveFile.name,
+                filename: path.basename(tempPath),
+              };
+
+              req.files.mediaFiles.push(fakeFile);
+              console.log(`Added drive file to mediaFiles for carousel ad: ${driveFile.name}`);
+            } catch (error) {
+              console.error(`Error processing drive file ${driveFile.name}:`, error);
+              progressTracker.errorJob(jobId, 'Failed to process Google Drive file');
+            }
+          }
+        } catch (error) {
+          console.error(`Error processing drive files for carousel ad:`, error);
+          progressTracker.errorJob(jobId, 'Failed to process Google Drive files');
+          return res.status(400).json({ error: 'Failed to process Google Drive files' });
+        }
+      }
+
+
       progressTracker.setProgress(jobId, 20, 'Categorizing files for processing...');
       console.log('✅ Progress set to 20% for jobId:', jobId);
 
@@ -1623,9 +1693,6 @@ app.post(
 
       let result;
       // For dynamic ad creative, use the aggregated media fields.
-
-
-
 
       if (isCarouselAd && !useDynamicCreative) {
         // Carousel ads cannot be dynamic (for now)
@@ -2804,6 +2871,8 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
   const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
   const singleFile = req.files.imageFile && req.files.imageFile[0];
   if (singleFile) mediaFiles.push(singleFile);
+
+
 
   // Upload all media files and get their hashes/video IDs
   const carouselCards = [];
