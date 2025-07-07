@@ -1411,6 +1411,8 @@ async function handleImageAd(req, token, adAccountId, adSetId, pageId, adName, c
 
 
 
+
+
 app.post(
   '/auth/create-ad',
   upload.fields([
@@ -1441,10 +1443,12 @@ app.post(
     try {
       // Extract basic fields and parse creative text fields.
       const { adName, adSetId, pageId, cta, adAccountId, instagramAccountId, shopDestination, shopDestinationType, launchPaused } = req.body;
-      const link = parseField(req.body.link);
-
-
-
+      let link;
+      try {
+        link = JSON.parse(req.body.link);
+      } catch (e) {
+        link = [];
+      }
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
       console.log('🔍 Before setProgress - jobId:', jobId);
 
