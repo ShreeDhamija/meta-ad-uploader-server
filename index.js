@@ -1633,7 +1633,7 @@ app.post(
         // Validate carousel requirements
         const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
         const singleFile = req.files.imageFile && req.files.imageFile[0];
-        const totalFiles = mediaFiles.length + (singleFile ? 1 : 0) + s3VideoUrls.length;
+        const totalFiles = mediaFiles.length + (singleFile ? 1 : 0) + s3VideoUrls.length + req.body.driveFiles;
 
         if (totalFiles < 2) {
           return res.status(400).json({ error: 'Carousel ads require at least 2 files' });
