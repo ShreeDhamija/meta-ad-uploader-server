@@ -1665,7 +1665,7 @@ app.post(
 
 
 
-      if (isCarouselAd) {
+      if (isCarouselAd && !useDynamicCreative) {
         // Carousel ads cannot be dynamic (for now)
 
 
