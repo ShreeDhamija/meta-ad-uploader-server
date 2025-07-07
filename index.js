@@ -1668,7 +1668,6 @@ app.post(
       if (isCarouselAd && !useDynamicCreative) {
         // Carousel ads cannot be dynamic (for now)
 
-
         // Validate carousel requirements
         const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
         const singleFile = req.files.imageFile && req.files.imageFile[0];
@@ -2541,7 +2540,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     titles: headlines.map(text => ({ text })),
     bodies: messagesArray.map(text => ({ text })),
     descriptions: descriptionsArray.map(text => ({ text })),
-    ad_formats: isCarouselAd ? ["CAROUSEL"] : ["SINGLE_IMAGE"],
+    ad_formats: isCarouselAd ? ["CAROUSEL_IMAGE"] : ["SINGLE_IMAGE"],
     call_to_action_types: [cta],
     link_urls: [{ website_url: link }],
     ...shopDestinationFields // Apply shop spec
@@ -2777,7 +2776,7 @@ async function handleDynamicVideoAd(
     titles: headlines.map((text) => ({ text })),
     bodies: messagesArray.map((text) => ({ text })),
     descriptions: descriptionsArray.map((text) => ({ text })),
-    ad_formats: isCarouselAd ? ["CAROUSEL"] : ["SINGLE_VIDEO"],
+    ad_formats: isCarouselAd ? ["CAROUSEL_VIDEO"] : ["SINGLE_VIDEO"],
     call_to_action_types: [cta],
     link_urls: [{ website_url: link }],
     ...shopDestinationFields,
