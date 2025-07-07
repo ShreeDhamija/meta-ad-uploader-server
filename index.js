@@ -49,8 +49,8 @@ app.use(express.json({ limit: '200mb' }));
 app.use(express.urlencoded({ limit: '200mb', extended: true }));
 app.set('trust proxy', 1);
 app.use(express.static('public'));
-axios.defaults.maxContentLength = 200 * 1024 * 1024;
-axios.defaults.maxBodyLength = 200 * 1024 * 1024;
+axios.defaults.maxContentLength = 350 * 1024 * 1024;
+axios.defaults.maxBodyLength = 350 * 1024 * 1024;
 axios.defaults.timeout = 120000;
 
 
@@ -97,6 +97,42 @@ const s3Client = new S3Client({
 });
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME;
+
+
+//google auth initialization
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  'https://api.withblip.com/auth/google/callback' // Your redirect URI
+);
+const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
+
+
+
+// Multer disk storage
+const uploadDir = path.join('/data', 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 350 * 1024 * 1024,  // 100MB per file
+    //files: 10,                     // Max 10 files
+    //fieldSize: 10 * 1024 * 1024   // 10MB per field
+  }
+});
+
+
 
 function buildCreativeEnhancementsConfig(firestoreSettings = {}) {
   return {
@@ -225,38 +261,7 @@ async function getMetaVideoThumbnail(videoId, token, maxRetries = 5) {
   }
 }
 
-//google auth initialization
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  'https://api.withblip.com/auth/google/callback' // Your redirect URI
-);
-const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 
-
-
-// Multer disk storage
-const uploadDir = path.join('/data', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 200 * 1024 * 1024,  // 100MB per file
-    //files: 10,                     // Max 10 files
-    //fieldSize: 10 * 1024 * 1024   // 10MB per field
-  }
-});
 
 // In-memory user storage (use a database in production)
 let userData = {};
@@ -482,54 +487,6 @@ app.get('/auth/fetch-adsets', async (req, res) => {
   }
 });
 
-
-// app.post('/auth/duplicate-campaign', async (req, res) => {
-//   const token = req.session.accessToken;
-//   if (!token) return res.status(401).json({ error: 'User not authenticated' });
-
-//   const { campaignId, adAccountId, newCampaignName } = req.body;
-//   if (!campaignId || !adAccountId) {
-//     return res.status(400).json({ error: 'Missing required parameters' });
-//   }
-
-//   try {
-//     // Step 1: Duplicate the campaign
-//     const copyUrl = `https://graph.facebook.com/v21.0/${campaignId}/copies`;
-//     const params = {
-//       deep_copy: false, // This will copy adsets but not ads
-//       rename_options: JSON.stringify({ rename_suffix: '_02' }),
-//       access_token: token,
-//       status_option: "INHERITED_FROM_SOURCE", // Start as paused for safety
-//     };
-
-//     const copyResponse = await axios.post(copyUrl, null, { params });
-//     const newCampaignId = copyResponse.data.copied_campaign_id;
-
-//     // Step 2: Update the campaign name if newCampaignName is provided
-//     if (newCampaignName && newCampaignName.trim() !== '') {
-//       const updateUrl = `https://graph.facebook.com/v21.0/${newCampaignId}`;
-//       const updateParams = {
-//         name: newCampaignName.trim(),
-//         access_token: token,
-//       };
-
-//       try {
-//         await axios.post(updateUrl, null, { params: updateParams });
-//         console.log(`Campaign ${newCampaignId} renamed to: ${newCampaignName.trim()}`);
-//       } catch (updateError) {
-//         console.error('Failed to update campaign name:', updateError.response?.data || updateError.message);
-//       }
-//     }
-
-//     return res.json({
-//       copied_campaign_id: newCampaignId,
-//       message: 'Campaign duplicated successfully'
-//     });
-//   } catch (error) {
-//     console.error('Duplicate campaign error:', error.response?.data || error.message);
-//     return res.status(500).json({ error: 'Failed to duplicate campaign' });
-//   }
-// });
 
 app.post('/auth/duplicate-campaign', async (req, res) => {
   const token = req.session.accessToken;
@@ -986,7 +943,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
           descriptions: descriptionsArray.map(text => ({ text })),
           ad_formats: ["SINGLE_VIDEO"],
           call_to_action_types: [cta],
-          link_urls: [{ website_url: link }],
+          link_urls: [{ website_url: link[0] || link }],
           ...shopDestinationFieldsForAssetFeed, // Apply shop destination fields
 
         },
@@ -1005,7 +962,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
         ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
         video_data: {
           video_id: videoId,
-          call_to_action: { type: cta, value: { link } },
+          call_to_action: { type: cta, value: { link: link[0] } },
           ...(messagesArray.length === 1 && { message: messagesArray[0] }),
           ...(headlines.length === 1 && { title: headlines[0] }),
           link_description: descriptionsArray[0],
@@ -1109,10 +1066,10 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
         link_data: {
           ...(headlines.length === 1 && { name: headlines[0] }),
           ...(descriptionsArray.length === 1 && { description: descriptionsArray[0] }),
-          call_to_action: { type: cta, value: { link } },
+          call_to_action: { type: cta, value: { link: link[0] } },
           ...(messagesArray.length === 1 && { message: messagesArray[0] }),
-          link: link,
-          caption: link,
+          link: link[0],
+          caption: link[0],
           image_hash: imageHash,
         }
       },
@@ -1483,7 +1440,8 @@ app.post(
 
     try {
       // Extract basic fields and parse creative text fields.
-      const { adName, adSetId, pageId, link, cta, adAccountId, instagramAccountId, shopDestination, shopDestinationType, launchPaused } = req.body;
+      const { adName, adSetId, pageId, cta, adAccountId, instagramAccountId, shopDestination, shopDestinationType, launchPaused } = req.body;
+      const link = parseField(req.body.link);
 
 
 
@@ -2542,7 +2500,7 @@ async function handleDynamicImageAd(req, token, adAccountId, adSetId, pageId, ad
     descriptions: descriptionsArray.map(text => ({ text })),
     ad_formats: isCarouselAd ? ["CAROUSEL_IMAGE"] : ["SINGLE_IMAGE"],
     call_to_action_types: [cta],
-    link_urls: [{ website_url: link }],
+    link_urls: [{ website_url: link[0] }],
     ...shopDestinationFields // Apply shop spec
 
   };
@@ -2778,7 +2736,7 @@ async function handleDynamicVideoAd(
     descriptions: descriptionsArray.map((text) => ({ text })),
     ad_formats: isCarouselAd ? ["CAROUSEL_VIDEO"] : ["SINGLE_VIDEO"],
     call_to_action_types: [cta],
-    link_urls: [{ website_url: link }],
+    link_urls: [{ website_url: link[0] }],
     ...shopDestinationFields,
   }
 
@@ -2892,7 +2850,7 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
       carouselCards.push({
         name: headlines[i] || `Card ${i + 1}`,
         description: descriptionsArray[i] || messagesArray[i] || '',
-        link: link, // Each card uses the same link for now
+        link: link.length === 1 ? link[0] : (link[i] || link[0]),
         video_id: videoResponse.data.id,
         picture: thumbnailUrl
       });
@@ -2917,7 +2875,7 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
       carouselCards.push({
         name: headlines[i] || `Card ${i + 1}`,
         description: descriptionsArray[i] || messagesArray[i] || '',
-        link: link, // Each card uses the same link for now
+        link: link.length === 1 ? link[0] : (link[i] || link[0]),
         image_hash: imageHash
       });
     }
@@ -2952,7 +2910,7 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
       carouselCards.push({
         name: headlines[cardIndex] || `Card ${cardIndex + 1}`,
         description: descriptionsArray[cardIndex] || messagesArray[cardIndex] || '',
-        link: link, // Each card uses the same link for now
+        link: link.length === 1 ? link[0] : (link[i] || link[0]),
         video_id: videoResponse.data.id
       });
     }
@@ -2969,7 +2927,7 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
       page_id: pageId,
       ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
       link_data: {
-        link: link,
+        link: link[0],
         call_to_action: { type: cta }, // ADD THIS LINE
         child_attachments: carouselCards
       }
