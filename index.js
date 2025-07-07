@@ -1682,7 +1682,7 @@ app.post(
         if (totalFiles > 10) {
           return res.status(400).json({ error: 'Carousel ads can have maximum 10 cards' });
         }
-
+        console.log("calling handleCarouselAd");
         result = await handleCarouselAd(
           req, token, adAccountId, adSetId, pageId, adName, cta, link,
           headlines, messagesArray, descriptionsArray, instagramAccountId,
@@ -2837,7 +2837,7 @@ async function handleDynamicVideoAd(
 async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus, s3VideoUrls = [], progressContext = null) {
 
   const { jobId, progressTracker } = progressContext || {};
-
+  console.log("reached handleCarouselAd");
   // Handle local files
   const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
   const singleFile = req.files.imageFile && req.files.imageFile[0];
