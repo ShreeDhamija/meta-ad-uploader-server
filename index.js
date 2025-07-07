@@ -2837,7 +2837,7 @@ async function handleDynamicVideoAd(
 async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus, s3VideoUrls = [], progressContext = null) {
 
   const { jobId, progressTracker } = progressContext || {};
-  console.log("reached handleCarouselAd");
+
   // Handle local files
   const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
   const singleFile = req.files.imageFile && req.files.imageFile[0];
@@ -2873,10 +2873,10 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
       });
 
       carouselCards.push({
-        video_id: videoResponse.data.id,
         name: headlines[i] || `Card ${i + 1}`,
         description: descriptionsArray[i] || messagesArray[i] || '',
-        call_to_action: { type: cta, value: { link } }
+        link: link, // Each card uses the same link for now
+        video_id: videoResponse.data.id
       });
     } else {
       // Upload image
@@ -2897,10 +2897,10 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
       const imageHash = imagesInfo[filenameKey].hash;
 
       carouselCards.push({
-        picture: imageHash,
         name: headlines[i] || `Card ${i + 1}`,
         description: descriptionsArray[i] || messagesArray[i] || '',
-        call_to_action: { type: cta, value: { link } }
+        link: link, // Each card uses the same link for now
+        image_hash: imageHash
       });
     }
 
@@ -2932,45 +2932,59 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
       const cardIndex = mediaFiles.length + i;
 
       carouselCards.push({
-        video_id: videoResponse.data.id,
         name: headlines[cardIndex] || `Card ${cardIndex + 1}`,
         description: descriptionsArray[cardIndex] || messagesArray[cardIndex] || '',
-        call_to_action: { type: cta, value: { link } }
+        link: link, // Each card uses the same link for now
+        video_id: videoResponse.data.id
       });
     }
   }
 
   if (progressTracker) {
-    progressTracker.setProgress(jobId, 85, 'Creating carousel ad...');
+    progressTracker.setProgress(jobId, 80, 'Creating carousel creative...');
   }
 
-  // Build carousel creative payload
-  const carouselPayload = {
+  // Step 1: Create the carousel creative
+  const creativePayload = {
+    name: `${adName} - Creative`,
+    object_story_spec: {
+      page_id: pageId,
+      ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
+      link_data: {
+        link: link,
+        child_attachments: carouselCards
+      }
+    },
+    ...(urlTags && { url_tags: urlTags }),
+    degrees_of_freedom_spec: {
+      creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
+    }
+  };
+
+  const createCreativeUrl = `https://graph.facebook.com/v22.0/${adAccountId}/adcreatives`;
+  const creativeResponse = await retryWithBackoff(() =>
+    axios.post(createCreativeUrl, creativePayload, {
+      params: { access_token: token }
+    })
+  );
+
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 90, 'Creating carousel ad...');
+  }
+
+  // Step 2: Create the ad using the creative
+  const adPayload = {
     name: adName,
     adset_id: adSetId,
     creative: {
-      object_story_spec: {
-        page_id: pageId,
-        ...(instagramAccountId && { instagram_user_id: instagramAccountId }),
-        link_data: {
-          link: link,
-          child_attachments: carouselCards,
-          caption: link,
-          call_to_action: { type: cta, value: { link } }
-        }
-      },
-      ...(urlTags && { url_tags: urlTags }),
-      degrees_of_freedom_spec: {
-        creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
-      }
+      creative_id: creativeResponse.data.id
     },
     status: adStatus
   };
 
-  // Create the carousel ad
   const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
   const createAdResponse = await retryWithBackoff(() =>
-    axios.post(createAdUrl, carouselPayload, {
+    axios.post(createAdUrl, adPayload, {
       params: { access_token: token }
     })
   );
@@ -2981,7 +2995,6 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
 
   return createAdResponse.data;
 }
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
