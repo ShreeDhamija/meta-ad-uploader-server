@@ -1573,7 +1573,7 @@ app.post(
       if (enablePlacementCustomization) {
         const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
         const singleFile = req.files.imageFile && req.files.imageFile[0];
-        const totalFiles = mediaFiles.length + (singleFile ? 1 : 0) + s3VideoUrls.length;
+        const totalFiles = mediaFiles.length + (singleFile ? 1 : 0) + s3VideoUrls.length + driveFiles.length;
 
         if (totalFiles < 2 || totalFiles > 3) {
           return res.status(400).json({ error: 'Placement customization requires 2-3 images with different aspect ratios' });
