@@ -1754,6 +1754,59 @@ app.post(
       }
 
 
+      // Add this block after the carousel Drive file processing:
+
+      // Handle multiple Google Drive files for PLACEMENT CUSTOMIZATION
+      if (!useDynamicCreative && !isCarouselAd && enablePlacementCustomization && driveFiles.length > 0) {
+        try {
+          console.log('Processing Google Drive files for placement customization...');
+          progressTracker.setProgress(jobId, 15, 'Processing Google Drive files for placement customization...');
+
+          req.files = req.files || {};
+          req.files.mediaFiles = req.files.mediaFiles || [];
+
+          for (const driveFile of driveFiles) {
+            try {
+              console.log(`Processing drive file for placement customization: ${driveFile.name}`);
+              const fileRes = await axios({
+                url: `https://www.googleapis.com/drive/v3/files/${driveFile.id}?alt=media`,
+                method: 'GET',
+                responseType: 'stream',
+                headers: { Authorization: `Bearer ${driveFile.accessToken}` },
+              });
+
+              const tempDir = path.resolve(__dirname, 'tmp');
+              if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+              const extension = driveFile.mimeType.startsWith('video/') ? '.mp4' : '.jpg';
+              const tempPath = path.join(tempDir, `${uuidv4()}-${driveFile.name}${extension}`);
+
+              const writer = fs.createWriteStream(tempPath);
+              fileRes.data.pipe(writer);
+              await new Promise((resolve) => writer.on('finish', resolve));
+
+              const fakeFile = {
+                path: tempPath,
+                mimetype: driveFile.mimeType,
+                originalname: driveFile.name,
+                filename: path.basename(tempPath),
+              };
+
+              req.files.mediaFiles.push(fakeFile);
+              console.log(`Added drive file to mediaFiles for placement customization: ${driveFile.name}`);
+            } catch (error) {
+              console.error(`Error processing drive file ${driveFile.name}:`, error);
+              progressTracker.errorJob(jobId, 'Failed to process Google Drive file');
+            }
+          }
+        } catch (error) {
+          console.error(`Error processing drive files for placement customization:`, error);
+          progressTracker.errorJob(jobId, 'Failed to process Google Drive files');
+          return res.status(400).json({ error: 'Failed to process Google Drive files' });
+        }
+      }
+
+
       progressTracker.setProgress(jobId, 20, 'Categorizing files for processing...');
       console.log('✅ Progress set to 20% for jobId:', jobId);
 
@@ -1764,7 +1817,7 @@ app.post(
       // For dynamic ad creative, use the aggregated media fields.
 
       if (isCarouselAd && !useDynamicCreative) {
-        // Carousel ads cannot be dynamic (for now)
+
 
         // Validate carousel requirements
         const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
