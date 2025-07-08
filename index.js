@@ -937,7 +937,7 @@ function generatePlacementRules(imageCategories, labels, timestamp) {
     if (category.category === 'square') {
       rule.customization_spec.publisher_platforms = ["facebook", "instagram"];
       rule.customization_spec.facebook_positions = ["feed", "marketplace"];
-      rule.customization_spec.instagram_positions = ["feed"];
+      rule.customization_spec.instagram_positions = ["stream"];
     } else if (category.category === 'portrait') {
       rule.customization_spec.publisher_platforms = ["facebook", "instagram"];
       rule.customization_spec.facebook_positions = ["story", "facebook_reels"];
@@ -945,7 +945,7 @@ function generatePlacementRules(imageCategories, labels, timestamp) {
     } else if (category.category === 'landscape') {
       rule.customization_spec.publisher_platforms = ["facebook", "instagram", "audience_network"];
       rule.customization_spec.facebook_positions = ["feed", "right_hand_column"];
-      rule.customization_spec.instagram_positions = ["feed"];
+      rule.customization_spec.instagram_positions = ["stream"];
       rule.customization_spec.audience_network_positions = ["classic"];
     }
 
