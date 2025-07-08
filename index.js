@@ -901,6 +901,59 @@ function cleanupUploadedFiles(files) {
   });
 }
 
+function categorizeImageByAspectRatio(width, height) {
+  const aspectRatio = width / height;
+
+  if (Math.abs(aspectRatio - 1.0) <= 0.1) {
+    return { category: 'square', label: 'square_placement' };
+  } else if (aspectRatio > 1.3) {
+    return { category: 'landscape', label: 'landscape_placement' };
+  } else if (aspectRatio < 0.7) {
+    return { category: 'portrait', label: 'portrait_placement' };
+  } else {
+    return { category: 'square', label: 'square_placement' }; // default
+  }
+}
+
+function generatePlacementRules(imageCategories, labels, timestamp) {
+  const rules = [];
+  let priority = 1;
+
+  imageCategories.forEach((category, index) => {
+    const rule = {
+      customization_spec: {
+        age_min: 18,
+        age_max: 65
+      },
+      image_label: { name: labels.images[index] },
+      body_label: { name: labels.body },
+      title_label: { name: labels.title },
+      priority: priority++
+    };
+
+    // Add placement-specific targeting
+    if (category.category === 'square') {
+      rule.customization_spec.publisher_platforms = ["facebook", "instagram"];
+      rule.customization_spec.facebook_positions = ["feed", "marketplace"];
+      rule.customization_spec.instagram_positions = ["feed"];
+    } else if (category.category === 'portrait') {
+      rule.customization_spec.publisher_platforms = ["facebook", "instagram"];
+      rule.customization_spec.facebook_positions = ["story", "facebook_reels"];
+      rule.customization_spec.instagram_positions = ["story", "reels"];
+    } else if (category.category === 'landscape') {
+      rule.customization_spec.publisher_platforms = ["facebook", "instagram", "audience_network"];
+      rule.customization_spec.facebook_positions = ["feed", "right_hand_column"];
+      rule.customization_spec.instagram_positions = ["feed"];
+      rule.customization_spec.audience_network_positions = ["classic"];
+    }
+
+    rules.push(rule);
+  });
+
+  return rules;
+}
+
+
 // Helper: Build video creative payload
 function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link, headlines, messagesArray, descriptionsArray, thumbnailHash, thumbnailUrl, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus }) {
 
@@ -1443,6 +1496,7 @@ app.post(
     try {
       // Extract basic fields and parse creative text fields.
       const { adName, adSetId, pageId, cta, adAccountId, instagramAccountId, shopDestination, shopDestinationType, launchPaused } = req.body;
+
       let link;
       try {
         link = JSON.parse(req.body.link);
@@ -1466,6 +1520,19 @@ app.post(
       const messagesArray = parseField(req.body.messages, req.body.message);
       const adStatus = launchPaused === 'true' ? 'PAUSED' : 'ACTIVE';
       const isCarouselAd = req.body.isCarouselAd === 'true';
+      const enablePlacementCustomization = req.body.enablePlacementCustomization === 'true';
+
+      if (enablePlacementCustomization) {
+        const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
+        const singleFile = req.files.imageFile && req.files.imageFile[0];
+        const totalFiles = mediaFiles.length + (singleFile ? 1 : 0) + s3VideoUrls.length;
+
+        if (totalFiles < 2 || totalFiles > 3) {
+          return res.status(400).json({ error: 'Placement customization requires 2-3 images with different aspect ratios' });
+        }
+      }
+
+
 
 
 
@@ -1714,6 +1781,17 @@ app.post(
           headlines, messagesArray, descriptionsArray, instagramAccountId,
           urlTags, creativeEnhancements, shopDestination, shopDestinationType,
           adStatus, s3VideoUrls, progressContext
+        );
+
+
+      } else if (enablePlacementCustomization && !useDynamicCreative) {
+        // NEW: Handle placement customization for regular ad sets
+        console.log("Handling placement customization for regular ad set");
+        result = await handlePlacementCustomizedAd(
+          req, token, adAccountId, adSetId, pageId, adName, cta, link,
+          headlines, messagesArray, descriptionsArray, instagramAccountId,
+          urlTags, creativeEnhancements, shopDestination, shopDestinationType,
+          adStatus, progressContext
         );
 
       } else if (useDynamicCreative) {
@@ -3045,6 +3123,181 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
 
   return createAdResponse.data;
 }
+
+
+function buildPlacementCustomizedCreativePayload({ adName, adSetId, pageId, imageHashes, imageCategories, labels, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus, timestamp }) {
+
+  let shopDestinationFields = {};
+  if (shopDestination && shopDestinationType) {
+    const onsiteDestinationObject = {};
+    if (shopDestinationType === "shop") {
+      onsiteDestinationObject.storefront_shop_id = shopDestination;
+    } else if (shopDestinationType === "product_set") {
+      onsiteDestinationObject.shop_collection_product_set_id = shopDestination;
+    } else if (shopDestinationType === "product") {
+      onsiteDestinationObject.details_page_product_id = shopDestination;
+    }
+    shopDestinationFields.onsite_destinations = [onsiteDestinationObject];
+  }
+
+  return {
+    name: adName,
+    adset_id: adSetId,
+    creative: {
+      object_story_spec: {
+        page_id: pageId,
+        ...(instagramAccountId && { instagram_user_id: instagramAccountId })
+      },
+      ...(urlTags && { url_tags: urlTags }),
+      asset_feed_spec: {
+        images: imageHashes,
+        bodies: messagesArray.map(text => ({
+          text,
+          adlabels: [{ name: labels.body }]
+        })),
+        titles: headlines.map(text => ({
+          text,
+          adlabels: [{ name: labels.title }]
+        })),
+        descriptions: descriptionsArray.map(text => ({ text })),
+        ad_formats: ["AUTOMATIC_FORMAT"],
+        call_to_action_types: [cta],
+        link_urls: [{ website_url: link[0] }],
+        optimization_type: "PLACEMENT",
+        asset_customization_rules: generatePlacementRules(imageCategories, labels, timestamp),
+        ...shopDestinationFields
+      },
+      degrees_of_freedom_spec: {
+        creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
+      }
+    },
+    status: adStatus
+  };
+}
+
+
+async function handlePlacementCustomizedAd(req, token, adAccountId, adSetId, pageId, adName, cta, link, headlines, messagesArray, descriptionsArray, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus, progressContext = null) {
+  const { jobId, progressTracker } = progressContext || {};
+
+  // Collect all files from different sources
+  const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
+  const singleFile = req.files.imageFile ? [req.files.imageFile[0]] : [];
+  const allFiles = [...mediaFiles, ...singleFile];
+
+  // Parse S3 URLs
+  let s3VideoUrls = [];
+  if (req.body.s3VideoUrls) {
+    s3VideoUrls = Array.isArray(req.body.s3VideoUrls) ? req.body.s3VideoUrls : [req.body.s3VideoUrls];
+  }
+
+  let imageHashes = [];
+  const imageCategories = [];
+  const sizeOf = require('image-size');
+
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 30, 'Processing images for placement customization...');
+  }
+
+  // Process local files
+  for (let i = 0; i < allFiles.length; i++) {
+    const file = allFiles[i];
+
+    if (progressTracker) {
+      progressTracker.setProgress(jobId, 30 + (i * 15), `Uploading image ${i + 1}/${allFiles.length + s3VideoUrls.length}...`);
+    }
+
+    // Get image dimensions
+    const dimensions = sizeOf(file.path);
+    const category = categorizeImageByAspectRatio(dimensions.width, dimensions.height);
+    imageCategories.push(category);
+
+    // Upload to Facebook
+    const uploadUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages`;
+    const formData = new FormData();
+    formData.append('access_token', token);
+    formData.append('file', fs.createReadStream(file.path), {
+      filename: file.originalname,
+      contentType: file.mimetype
+    });
+
+    const uploadResponse = await axios.post(uploadUrl, formData, {
+      headers: formData.getHeaders()
+    });
+
+    const imagesInfo = uploadResponse.data.images;
+    const filenameKey = Object.keys(imagesInfo)[0];
+    const timestamp = Date.now();
+
+    imageHashes.push({
+      hash: imagesInfo[filenameKey].hash,
+      adlabels: [{ name: `image_${category.label}_${timestamp}_${i}` }]
+    });
+
+    // Cleanup file
+    fs.unlink(file.path, err => {
+      if (err) console.error("Error deleting image file:", err);
+    });
+  }
+
+  // Handle S3 URLs (if any - though typically these would be videos)
+  for (let i = 0; i < s3VideoUrls.length; i++) {
+    // For S3 URLs, we'll need to assume aspect ratio or get it another way
+    // For now, defaulting to landscape for S3 videos
+    const category = { category: 'landscape', label: 'landscape_placement' };
+    imageCategories.push(category);
+
+    // Note: S3 URLs would need different handling for videos vs images
+    // This is a placeholder - you may need to adjust based on your S3 setup
+  }
+
+  const timestamp = Date.now();
+  const labels = {
+    body: `body_${timestamp}`,
+    title: `title_${timestamp}`,
+    images: imageHashes.map(img => img.adlabels[0].name)
+  };
+
+  // Build the creative payload
+  const creativePayload = buildPlacementCustomizedCreativePayload({
+    adName,
+    adSetId,
+    pageId,
+    imageHashes,
+    imageCategories,
+    labels,
+    cta,
+    link,
+    headlines,
+    messagesArray,
+    descriptionsArray,
+    instagramAccountId,
+    urlTags,
+    creativeEnhancements,
+    shopDestination,
+    shopDestinationType,
+    adStatus,
+    timestamp
+  });
+
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 85, 'Creating placement customized ad...');
+  }
+
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+  const createAdResponse = await retryWithBackoff(() =>
+    axios.post(createAdUrl, creativePayload, {
+      params: { access_token: token }
+    })
+  );
+
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 95, 'Placement customized ad created successfully!');
+  }
+
+  return createAdResponse.data;
+}
+
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
