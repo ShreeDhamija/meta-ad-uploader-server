@@ -28,6 +28,8 @@ const { google } = require('googleapis');
 const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { getProgressTracker, generateJobId, getProgressMessage, router: progressRouter } = require('./services/adProgress');
+const { imageSizeFromFile } = require('image-size/fromFile');
+
 
 app.use('/api', progressRouter);
 
@@ -3192,7 +3194,7 @@ async function handlePlacementCustomizedAd(req, token, adAccountId, adSetId, pag
 
   let imageHashes = [];
   const imageCategories = [];
-  const sizeOf = require('image-size');
+
 
   if (progressTracker) {
     progressTracker.setProgress(jobId, 30, 'Processing images for placement customization...');
@@ -3207,7 +3209,7 @@ async function handlePlacementCustomizedAd(req, token, adAccountId, adSetId, pag
     }
 
     // Get image dimensions
-    const dimensions = sizeOf(file.path);
+    const dimensions = await imageSizeFromFile(file.path);
     const category = categorizeImageByAspectRatio(dimensions.width, dimensions.height);
     imageCategories.push(category);
 
