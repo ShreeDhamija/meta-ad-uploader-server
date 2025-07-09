@@ -1481,6 +1481,41 @@ app.post(
     if (!token) return res.status(401).json({ error: 'User not authenticated' });
     console.log("create-ad reached");
 
+    //Temp check
+    if (req.body.videoMetadata) {
+      console.log('🎥 VIDEO METADATA DETECTED!');
+      console.log('Raw videoMetadata:', req.body.videoMetadata);
+      try {
+        const parsedMetadata = JSON.parse(req.body.videoMetadata);
+        console.log('Parsed videoMetadata:', JSON.stringify(parsedMetadata, null, 2));
+
+        // Log each video's aspect ratio
+        parsedMetadata.forEach((video, index) => {
+          console.log(`Video ${index + 1}:`, {
+            fileName: video.fileName || null,
+            driveId: video.driveId || null,
+            s3Url: video.s3Url || null,
+            aspectRatio: video.aspectRatio,
+            aspectRatioFormatted: `${(video.aspectRatio > 1 ? video.aspectRatio : 1 / video.aspectRatio).toFixed(2)}:1`
+          });
+        });
+
+        return res.json({
+          success: true,
+          message: 'Video metadata received successfully',
+          videoCount: parsedMetadata.length
+        });
+      } catch (parseError) {
+        console.error('Error parsing videoMetadata:', parseError);
+        return res.json({
+          success: true,
+          message: 'Video metadata received but failed to parse',
+          error: parseError.message
+        });
+      }
+    }
+    //Temp Check ending
+
     //Progress Tracking
     const jobId = req.body.jobId;
     console.log('🔍 Initial jobId:', jobId, typeof jobId);
