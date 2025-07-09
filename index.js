@@ -1264,6 +1264,7 @@ async function handleVideoAd(
         headers: videoFormData.getHeaders(),
       })
       videoId = videoUploadResponse.data.id
+      await waitForVideoProcessing(videoId, token)
       console.log("✅ Video uploaded. Video ID:", videoId)
 
       if (progressTracker) {
@@ -1854,18 +1855,6 @@ app.post(
 
 
       }
-
-      // else if (enablePlacementCustomization && !useDynamicCreative) {
-      //   // NEW: Handle placement customization for regular ad sets
-      //   console.log("Handling placement customization for regular ad set");
-      //   result = await handlePlacementCustomizedAd(
-      //     req, token, adAccountId, adSetId, pageId, adName, cta, link,
-      //     headlines, messagesArray, descriptionsArray, instagramAccountId,
-      //     urlTags, creativeEnhancements, shopDestination, shopDestinationType,
-      //     adStatus, progressContext
-      //   );
-
-      // }
 
       else if (enablePlacementCustomization && !useDynamicCreative) {
         console.log("Checking for placement customization type...");
@@ -2922,7 +2911,7 @@ async function handleDynamicVideoAd(
       })
       if (progressTracker) {
         currentProgress += 8;
-        progressTracker.setProgress(jobId, currentProgress, `Processing S3 video`);
+        progressTracker.setProgress(jobId, currentProgress, `Processing video`);
       }
       const videoId = videoUploadResponse.data.id
       await waitForVideoProcessing(videoId, token)
@@ -3157,7 +3146,7 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
 
       if (progressTracker) {
         const progressPercent = 20 + Math.round((progressStep / totalFiles) * 60);
-        progressTracker.setProgress(jobId, progressPercent, `Processing S3 video ${progressStep}/${totalFiles}...`);
+        progressTracker.setProgress(jobId, progressPercent, `Processing video ${progressStep}/${totalFiles}...`);
       }
 
       // Create video from S3 URL
@@ -3463,6 +3452,8 @@ async function handlePlacementCustomizedVideoAd(
       });
 
       const videoId = videoUploadResponse.data.id;
+      await waitForVideoProcessing(videoId, token)
+
       console.log(`✅ Video uploaded: ${file.originalname}, ID: ${videoId}`);
 
       videoAssets.push({
@@ -3485,7 +3476,7 @@ async function handlePlacementCustomizedVideoAd(
     const s3Url = s3VideoUrls[i];
 
     if (progressTracker) {
-      progressTracker.setProgress(jobId, 50 + (i * 10), `Processing S3 video ${i + 1}/${s3VideoUrls.length}...`);
+      progressTracker.setProgress(jobId, 50 + (i * 10), `Processing video ${i + 1}/${s3VideoUrls.length}...`);
     }
 
     // Find aspect ratio from metadata
@@ -3494,7 +3485,7 @@ async function handlePlacementCustomizedVideoAd(
     const category = categorizeVideoByAspectRatio(aspectRatio);
     videoCategories.push(category);
 
-    console.log(`📹 Processing S3 video: ${s3Url}, aspect ratio: ${aspectRatio}, category: ${category.category}`);
+    console.log(`📹 Processing video: ${s3Url}, aspect ratio: ${aspectRatio}, category: ${category.category}`);
 
     // Let Meta download from S3
     const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
@@ -3508,6 +3499,7 @@ async function handlePlacementCustomizedVideoAd(
       });
 
       const videoId = videoUploadResponse.data.id;
+      await waitForVideoProcessing(videoId, token)
       console.log(`✅ S3 video uploaded via file_url, ID: ${videoId}`);
 
       videoAssets.push({
