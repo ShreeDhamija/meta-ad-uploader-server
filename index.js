@@ -3566,6 +3566,9 @@ async function handlePlacementCustomizedVideoAd(
     timestamp
   });
 
+
+  console.log("📦 Creative Payload for Video Placement Customization:", JSON.stringify(creativePayload, null, 2));
+
   if (progressTracker) {
     progressTracker.setProgress(jobId, 85, 'Creating placement customized video ad...');
   }
@@ -3643,35 +3646,37 @@ function buildPlacementCustomizedVideoCreativePayload({
 // 5. Generate placement rules for videos (similar to images but for video assets)
 function generateVideoPlacementRules(videoCategories, labels, timestamp) {
   const rules = [];
-  const placementGroups = {
-    'FACEBOOK_FEED': ['landscape', 'square'],
-    'FACEBOOK_STORIES': ['portrait', 'square'],
-    'INSTAGRAM_FEED': ['square', 'landscape'],
-    'INSTAGRAM_STORIES': ['portrait', 'square'],
-    'FACEBOOK_REELS': ['portrait'],
-    'INSTAGRAM_REELS': ['portrait']
-  };
+  let priority = 1;
 
-  // Create rules for each placement based on available video categories
-  Object.entries(placementGroups).forEach(([placement, preferredCategories]) => {
-    const availableVideos = videoCategories
-      .map((cat, index) => ({ category: cat.category, label: labels.videos[index] }))
-      .filter(v => preferredCategories.includes(v.category));
+  videoCategories.forEach((category, index) => {
+    const rule = {
+      customization_spec: {
+        age_min: 18,
+        age_max: 65
+      },
+      video_label: { name: labels.videos[index] },  // Changed from image_label
+      body_label: { name: labels.body },
+      title_label: { name: labels.title },
+      priority: priority++
+    };
 
-    if (availableVideos.length > 0) {
-      // Use the most suitable video for this placement
-      const selectedVideo = availableVideos[0];
-
-      rules.push({
-        name: `${placement.toLowerCase()}_rule_${timestamp}`,
-        asset_label_spec: [{
-          videos: [{ name: selectedVideo.label }],
-          bodies: [{ name: labels.body }],
-          titles: [{ name: labels.title }]
-        }],
-        placement: [placement]
-      });
+    // Same placement-specific targeting as images
+    if (category.category === 'square') {
+      rule.customization_spec.publisher_platforms = ["facebook", "instagram"];
+      rule.customization_spec.facebook_positions = ["feed", "marketplace"];
+      rule.customization_spec.instagram_positions = ["stream"];
+    } else if (category.category === 'portrait') {
+      rule.customization_spec.publisher_platforms = ["facebook", "instagram"];
+      rule.customization_spec.facebook_positions = ["story", "facebook_reels"];
+      rule.customization_spec.instagram_positions = ["story", "reels"];
+    } else if (category.category === 'landscape') {
+      rule.customization_spec.publisher_platforms = ["facebook", "instagram", "audience_network"];
+      rule.customization_spec.facebook_positions = ["feed", "right_hand_column"];
+      rule.customization_spec.instagram_positions = ["stream"];
+      rule.customization_spec.audience_network_positions = ["classic"];
     }
+
+    rules.push(rule);
   });
 
   return rules;
