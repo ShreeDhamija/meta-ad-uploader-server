@@ -917,6 +917,19 @@ function categorizeImageByAspectRatio(width, height) {
   }
 }
 
+function categorizeVideoByAspectRatio(aspectRatio) {
+  // Define threshold for each category
+  const SQUARE_THRESHOLD = 0.05; // 5% tolerance
+
+  if (Math.abs(aspectRatio - 1) <= SQUARE_THRESHOLD) {
+    return { category: 'square', label: 'square_placement' };
+  } else if (aspectRatio > 1) {
+    return { category: 'landscape', label: 'landscape_placement' };
+  } else {
+    return { category: 'portrait', label: 'portrait_placement' };
+  }
+}
+
 function generatePlacementRules(imageCategories, labels, timestamp) {
   const rules = [];
   let priority = 1;
@@ -1481,40 +1494,6 @@ app.post(
     if (!token) return res.status(401).json({ error: 'User not authenticated' });
     console.log("create-ad reached");
 
-    //Temp check
-    if (req.body.videoMetadata) {
-      console.log('🎥 VIDEO METADATA DETECTED!');
-      console.log('Raw videoMetadata:', req.body.videoMetadata);
-      try {
-        const parsedMetadata = JSON.parse(req.body.videoMetadata);
-        console.log('Parsed videoMetadata:', JSON.stringify(parsedMetadata, null, 2));
-
-        // Log each video's aspect ratio
-        parsedMetadata.forEach((video, index) => {
-          console.log(`Video ${index + 1}:`, {
-            fileName: video.fileName || null,
-            driveId: video.driveId || null,
-            s3Url: video.s3Url || null,
-            aspectRatio: video.aspectRatio,
-            aspectRatioFormatted: `${(video.aspectRatio > 1 ? video.aspectRatio : 1 / video.aspectRatio).toFixed(2)}:1`
-          });
-        });
-
-        return res.json({
-          success: true,
-          message: 'Video metadata received successfully',
-          videoCount: parsedMetadata.length
-        });
-      } catch (parseError) {
-        console.error('Error parsing videoMetadata:', parseError);
-        return res.json({
-          success: true,
-          message: 'Video metadata received but failed to parse',
-          error: parseError.message
-        });
-      }
-    }
-    //Temp Check ending
 
     //Progress Tracking
     const jobId = req.body.jobId;
@@ -1874,17 +1853,60 @@ app.post(
         );
 
 
-      } else if (enablePlacementCustomization && !useDynamicCreative) {
-        // NEW: Handle placement customization for regular ad sets
-        console.log("Handling placement customization for regular ad set");
-        result = await handlePlacementCustomizedAd(
-          req, token, adAccountId, adSetId, pageId, adName, cta, link,
-          headlines, messagesArray, descriptionsArray, instagramAccountId,
-          urlTags, creativeEnhancements, shopDestination, shopDestinationType,
-          adStatus, progressContext
-        );
+      }
 
-      } else if (useDynamicCreative) {
+      // else if (enablePlacementCustomization && !useDynamicCreative) {
+      //   // NEW: Handle placement customization for regular ad sets
+      //   console.log("Handling placement customization for regular ad set");
+      //   result = await handlePlacementCustomizedAd(
+      //     req, token, adAccountId, adSetId, pageId, adName, cta, link,
+      //     headlines, messagesArray, descriptionsArray, instagramAccountId,
+      //     urlTags, creativeEnhancements, shopDestination, shopDestinationType,
+      //     adStatus, progressContext
+      //   );
+
+      // }
+
+      else if (enablePlacementCustomization && !useDynamicCreative) {
+        console.log("Checking for placement customization type...");
+
+        // Parse video metadata if present
+        let videoMetadata = null;
+        if (req.body.videoMetadata) {
+          try {
+            videoMetadata = JSON.parse(req.body.videoMetadata);
+            console.log("📹 Parsed video metadata for placement customization:", videoMetadata);
+          } catch (e) {
+            console.error("Error parsing videoMetadata:", e);
+          }
+        }
+
+        // Determine if this is video or image placement customization
+        const hasVideoFiles = (req.files?.mediaFiles || []).some(f => f.mimetype.startsWith('video/')) ||
+          (req.files?.imageFile?.[0]?.mimetype.startsWith('video/')) ||
+          s3VideoUrls.length > 0 ||
+          videoMetadata?.length > 0;
+
+        if (hasVideoFiles) {
+          console.log("Handling VIDEO placement customization");
+          result = await handlePlacementCustomizedVideoAd(
+            req, token, adAccountId, adSetId, pageId, adName, cta, link,
+            headlines, messagesArray, descriptionsArray, instagramAccountId,
+            urlTags, creativeEnhancements, shopDestination, shopDestinationType,
+            adStatus, s3VideoUrls, videoMetadata, progressContext
+          );
+        } else {
+          console.log("Handling IMAGE placement customization");
+          result = await handlePlacementCustomizedAd(
+            req, token, adAccountId, adSetId, pageId, adName, cta, link,
+            headlines, messagesArray, descriptionsArray, instagramAccountId,
+            urlTags, creativeEnhancements, shopDestination, shopDestinationType,
+            adStatus, progressContext
+          );
+        }
+      }
+
+      else if (useDynamicCreative) {
 
         // Expect the aggregated files to be in req.files.mediaFiles
         const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
@@ -3385,6 +3407,274 @@ async function handlePlacementCustomizedAd(req, token, adAccountId, adSetId, pag
   }
 
   return createAdResponse.data;
+}
+
+
+
+async function handlePlacementCustomizedVideoAd(
+  req, token, adAccountId, adSetId, pageId, adName, cta, link,
+  headlines, messagesArray, descriptionsArray, instagramAccountId,
+  urlTags, creativeEnhancements, shopDestination, shopDestinationType,
+  adStatus, s3VideoUrls, videoMetadata, progressContext = null
+) {
+  const { jobId, progressTracker } = progressContext || {};
+
+  // Collect all video files
+  const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
+  const singleFile = req.files.imageFile ? [req.files.imageFile[0]] : [];
+  const allLocalFiles = [...mediaFiles, ...singleFile];
+
+  const videoAssets = []; // Will store {videoId, category, label}
+  const videoCategories = [];
+  const timestamp = Date.now();
+
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 30, 'Processing videos for placement customization...');
+  }
+
+  // Process local video files
+  for (let i = 0; i < allLocalFiles.length; i++) {
+    const file = allLocalFiles[i];
+
+    if (progressTracker) {
+      progressTracker.setProgress(jobId, 30 + (i * 10), `Uploading video ${i + 1}/${allLocalFiles.length + s3VideoUrls.length}...`);
+    }
+
+    // Find aspect ratio from metadata
+    const metadata = videoMetadata?.find(m => m.fileName === file.originalname);
+    const aspectRatio = metadata?.aspectRatio || 16 / 9; // Default to landscape
+    const category = categorizeVideoByAspectRatio(aspectRatio);
+    videoCategories.push(category);
+
+    console.log(`📹 Processing local video: ${file.originalname}, aspect ratio: ${aspectRatio}, category: ${category.category}`);
+
+    // Upload video to Facebook
+    const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
+    const videoFormData = new FormData();
+    videoFormData.append("access_token", token);
+    videoFormData.append("source", fs.createReadStream(file.path), {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
+
+    try {
+      const videoUploadResponse = await axios.post(uploadVideoUrl, videoFormData, {
+        headers: videoFormData.getHeaders(),
+      });
+
+      const videoId = videoUploadResponse.data.id;
+      console.log(`✅ Video uploaded: ${file.originalname}, ID: ${videoId}`);
+
+      videoAssets.push({
+        video_id: videoId,
+        adlabels: [{ name: `video_${category.label}_${timestamp}_${i}` }]
+      });
+
+      // Cleanup file
+      fs.unlink(file.path, err => {
+        if (err) console.error("Error deleting video file:", err);
+      });
+    } catch (err) {
+      console.error(`❌ Failed to upload video ${file.originalname}:`, err.response?.data || err.message);
+      throw new Error(`Video upload failed for ${file.originalname}`);
+    }
+  }
+
+  // Process S3 video URLs
+  for (let i = 0; i < s3VideoUrls.length; i++) {
+    const s3Url = s3VideoUrls[i];
+
+    if (progressTracker) {
+      progressTracker.setProgress(jobId, 50 + (i * 10), `Processing S3 video ${i + 1}/${s3VideoUrls.length}...`);
+    }
+
+    // Find aspect ratio from metadata
+    const metadata = videoMetadata?.find(m => m.s3Url === s3Url);
+    const aspectRatio = metadata?.aspectRatio || 16 / 9;
+    const category = categorizeVideoByAspectRatio(aspectRatio);
+    videoCategories.push(category);
+
+    console.log(`📹 Processing S3 video: ${s3Url}, aspect ratio: ${aspectRatio}, category: ${category.category}`);
+
+    // Let Meta download from S3
+    const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`;
+
+    try {
+      const videoUploadResponse = await axios.post(uploadVideoUrl, null, {
+        params: {
+          access_token: token,
+          file_url: s3Url
+        }
+      });
+
+      const videoId = videoUploadResponse.data.id;
+      console.log(`✅ S3 video uploaded via file_url, ID: ${videoId}`);
+
+      videoAssets.push({
+        video_id: videoId,
+        adlabels: [{ name: `video_${category.label}_${timestamp}_${allLocalFiles.length + i}` }]
+      });
+
+      // Clean up S3 file after successful upload
+      try {
+        await cleanupS3File(s3Url);
+        console.log("🧹 S3 file cleaned up:", s3Url);
+      } catch (err) {
+        console.warn("⚠️ Failed to cleanup S3 file:", err.message);
+      }
+    } catch (err) {
+      console.error(`❌ Failed to upload S3 video:`, err.response?.data || err.message);
+      throw new Error("S3 video upload failed");
+    }
+  }
+
+  // Wait for all videos to be processed
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 70, 'Waiting for video processing...');
+  }
+
+  for (const asset of videoAssets) {
+    await waitForVideoProcessing(asset.video_id, token);
+  }
+
+  // Generate labels for the creative elements
+  const labels = {
+    body: `body_${timestamp}`,
+    title: `title_${timestamp}`,
+    videos: videoAssets.map(v => v.adlabels[0].name)
+  };
+
+  // Build the creative payload for video placement customization
+  const creativePayload = buildPlacementCustomizedVideoCreativePayload({
+    adName,
+    adSetId,
+    pageId,
+    videoAssets,
+    videoCategories,
+    labels,
+    cta,
+    link,
+    headlines,
+    messagesArray,
+    descriptionsArray,
+    instagramAccountId,
+    urlTags,
+    creativeEnhancements,
+    shopDestination,
+    shopDestinationType,
+    adStatus,
+    timestamp
+  });
+
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 85, 'Creating placement customized video ad...');
+  }
+
+  const createAdUrl = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+  const createAdResponse = await retryWithBackoff(() =>
+    axios.post(createAdUrl, creativePayload, {
+      params: { access_token: token }
+    })
+  );
+
+  if (progressTracker) {
+    progressTracker.setProgress(jobId, 95, 'Placement customized video ad created successfully!');
+  }
+
+  console.log("✅ Placement customized video ad created:", createAdResponse.data.id);
+  return createAdResponse.data;
+}
+
+// 4. Build creative payload for video placement customization
+function buildPlacementCustomizedVideoCreativePayload({
+  adName, adSetId, pageId, videoAssets, videoCategories, labels,
+  cta, link, headlines, messagesArray, descriptionsArray,
+  instagramAccountId, urlTags, creativeEnhancements,
+  shopDestination, shopDestinationType, adStatus, timestamp
+}) {
+  let shopDestinationFields = {};
+  if (shopDestination && shopDestinationType) {
+    const onsiteDestinationObject = {};
+    if (shopDestinationType === "shop") {
+      onsiteDestinationObject.storefront_shop_id = shopDestination;
+    } else if (shopDestinationType === "product_set") {
+      onsiteDestinationObject.shop_collection_product_set_id = shopDestination;
+    } else if (shopDestinationType === "product") {
+      onsiteDestinationObject.details_page_product_id = shopDestination;
+    }
+    shopDestinationFields.onsite_destinations = [onsiteDestinationObject];
+  }
+
+  return {
+    name: adName,
+    adset_id: adSetId,
+    creative: {
+      object_story_spec: {
+        page_id: pageId,
+        ...(instagramAccountId && { instagram_user_id: instagramAccountId })
+      },
+      ...(urlTags && { url_tags: urlTags }),
+      asset_feed_spec: {
+        videos: videoAssets,
+        bodies: messagesArray.map(text => ({
+          text,
+          adlabels: [{ name: labels.body }]
+        })),
+        titles: headlines.map(text => ({
+          text,
+          adlabels: [{ name: labels.title }]
+        })),
+        descriptions: descriptionsArray.map(text => ({ text })),
+        ad_formats: ["AUTOMATIC_FORMAT"],
+        call_to_action_types: [cta],
+        link_urls: [{ website_url: link[0] }],
+        optimization_type: "PLACEMENT",
+        asset_customization_rules: generateVideoPlacementRules(videoCategories, labels, timestamp),
+        ...shopDestinationFields
+      },
+      degrees_of_freedom_spec: {
+        creative_features_spec: buildCreativeEnhancementsConfig(creativeEnhancements)
+      }
+    },
+    status: adStatus
+  };
+}
+
+// 5. Generate placement rules for videos (similar to images but for video assets)
+function generateVideoPlacementRules(videoCategories, labels, timestamp) {
+  const rules = [];
+  const placementGroups = {
+    'FACEBOOK_FEED': ['landscape', 'square'],
+    'FACEBOOK_STORIES': ['portrait', 'square'],
+    'INSTAGRAM_FEED': ['square', 'landscape'],
+    'INSTAGRAM_STORIES': ['portrait', 'square'],
+    'FACEBOOK_REELS': ['portrait'],
+    'INSTAGRAM_REELS': ['portrait']
+  };
+
+  // Create rules for each placement based on available video categories
+  Object.entries(placementGroups).forEach(([placement, preferredCategories]) => {
+    const availableVideos = videoCategories
+      .map((cat, index) => ({ category: cat.category, label: labels.videos[index] }))
+      .filter(v => preferredCategories.includes(v.category));
+
+    if (availableVideos.length > 0) {
+      // Use the most suitable video for this placement
+      const selectedVideo = availableVideos[0];
+
+      rules.push({
+        name: `${placement.toLowerCase()}_rule_${timestamp}`,
+        asset_label_spec: [{
+          videos: [{ name: selectedVideo.label }],
+          bodies: [{ name: labels.body }],
+          titles: [{ name: labels.title }]
+        }],
+        placement: [placement]
+      });
+    }
+  });
+
+  return rules;
 }
 
 
