@@ -70,7 +70,7 @@ redisClient.on('error', (err) => {
 });
 
 redisClient.on('ready', () => {
-  console.log('✅ Redis client is ready');
+  // console.log('✅ Redis client is ready');
 });
 
 redisClient.connect();
@@ -234,7 +234,7 @@ async function getMetaVideoThumbnail(videoId, token, maxRetries = 5) {
         const preferred = thumbnails.find(t => t.is_preferred);
         const best = preferred || thumbnails[thumbnails.length - 1];
 
-        console.log(`✅ Thumbnail found on attempt ${attempt}: ${best.uri}`);
+        // console.log(`✅ Thumbnail found on attempt ${attempt}: ${best.uri}`);
         return best.uri;
       } else {
         console.warn(`⚠️ No thumbnails found for video ${videoId} on attempt ${attempt}`);
@@ -253,7 +253,7 @@ async function getMetaVideoThumbnail(videoId, token, maxRetries = 5) {
 
       // If error and not the last attempt, wait and retry
       if (attempt < maxRetries) {
-        console.log(`🔄 Retrying in 2 seconds... (attempt ${attempt + 1}/${maxRetries})`);
+        // console.log(`🔄 Retrying in 2 seconds... (attempt ${attempt + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, 2000));
         continue;
       }
@@ -315,7 +315,7 @@ app.get('/auth/callback', async (req, res) => {
 
     const { access_token: longLivedToken } = longLivedResponse.data;
     //console.log("✅ Long-lived token received");
-    console.log("🔑 New long-lived token from Facebook login:", longLivedToken);
+    // console.log("🔑 New long-lived token from Facebook login:", longLivedToken);
 
 
     // 3. Store token in session
@@ -410,7 +410,7 @@ app.get("/auth/me", async (req, res) => {
 
 app.get('/auth/fetch-ad-accounts', async (req, res) => {
   const token = req.session.accessToken;
-  console.log("Session token used to fetch ad accounts:", req.session.accessToken);
+  // console.log("Session token used to fetch ad accounts:", req.session.accessToken);
   if (!token) return res.status(401).json({ error: 'User not authenticated' });
   try {
     const adAccountsResponse = await axios.get('https://graph.facebook.com/v21.0/me/adaccounts', {
@@ -511,7 +511,7 @@ app.post('/auth/duplicate-campaign', async (req, res) => {
     const campaignCopyResponse = await axios.post(copyCampaignUrl, null, { params: campaignCopyParams });
     const newCampaignId = campaignCopyResponse.data.copied_campaign_id;
 
-    console.log(`✅ Created new campaign copy: (${newCampaignId})`);
+    // console.log(`✅ Created new campaign copy: (${newCampaignId})`);
 
     // Step 2: Update the campaign name if newCampaignName is provided
     if (newCampaignName && newCampaignName.trim() !== '') {
@@ -523,7 +523,7 @@ app.post('/auth/duplicate-campaign', async (req, res) => {
 
       try {
         await axios.post(updateUrl, null, { params: updateParams });
-        console.log(`Campaign ${newCampaignId} renamed to: ${newCampaignName.trim()}`);
+        // console.log(`Campaign ${newCampaignId} renamed to: ${newCampaignName.trim()}`);
       } catch (updateError) {
         console.error('Failed to update campaign name:', updateError.response?.data || updateError.message);
       }
@@ -562,7 +562,7 @@ app.post('/auth/duplicate-campaign', async (req, res) => {
           new_name: adSet.name // Same name, no suffix
         });
 
-        console.log(`✅ Copied ad set: ${adSet.name} (${newAdSetId})`);
+        // console.log(`✅ Copied ad set: ${adSet.name} (${newAdSetId})`);
       } catch (adSetError) {
         console.error(`❌ Failed to copy ad set ${adSet.name}:`, adSetError.response?.data || adSetError.message);
         // Continue with other ad sets even if one fails
@@ -613,7 +613,7 @@ app.post('/auth/duplicate-adset', async (req, res) => {
 
       try {
         await axios.post(updateUrl, null, { params: updateParams });
-        console.log(`Ad set ${newAdSetId} renamed to: ${newAdSetName.trim()}`);
+        // console.log(`Ad set ${newAdSetId} renamed to: ${newAdSetName.trim()}`);
       } catch (updateError) {
         console.error('Failed to update ad set name:', updateError.response?.data || updateError.message);
 
@@ -737,7 +737,7 @@ app.get('/auth/fetch-pages', async (req, res) => {
 app.get('/auth/fetch-shop-data', async (req, res) => {
   const token = req.session.accessToken;
   const { pageId } = req.query;
-  console.log("selected page", pageId);
+  // console.log("selected page", pageId);
 
   if (!token) return res.status(401).json({ error: 'Not authenticated' });
   if (!pageId) return res.status(400).json({ error: 'Missing pageId' });
@@ -988,7 +988,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
   }
 
   if (useDynamicCreative) {
-    console.log("THIS SHOULD NOT RUN VIDEO");
+    // console.log("THIS SHOULD NOT RUN VIDEO");
     return {
       name: adName,
       adset_id: adSetId,
@@ -1078,7 +1078,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
 
 // Helper: Build image creative payload
 function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, link, headlines, messagesArray, descriptionsArray, useDynamicCreative, instagramAccountId, urlTags, creativeEnhancements, shopDestination, shopDestinationType, adStatus }) {
-  console.log("building image creativePayload");
+  // console.log("building image creativePayload");
   let shopDestinationFieldsForAssetFeed = {};
 
   if (shopDestination && shopDestinationType) {
@@ -1212,8 +1212,8 @@ async function handleVideoAd(
     if (progressTracker) {
       progressTracker.setProgress(jobId, 40, `Processing video:...`);
     }
-    console.log(progressTracker);
-    console.log('✅ Progress set to 40% for jobId:', jobId);
+    // console.log(progressTracker);
+    // console.log('✅ Progress set to 40% for jobId:', jobId);
 
     try {
       const uploadVideoUrl = `https://graph.facebook.com/v21.0/${adAccountId}/advideos`
@@ -1498,8 +1498,8 @@ app.post(
 
     //Progress Tracking
     const jobId = req.body.jobId;
-    console.log('🔍 Initial jobId:', jobId, typeof jobId);
-    console.log('🔍 Full req.body:', req.body);
+    // console.log('🔍 Initial jobId:', jobId, typeof jobId);
+    // console.log('🔍 Full req.body:', req.body);
     if (!jobId) {
       return res.status(400).json({ error: 'JobId is required' });
     }
@@ -1521,12 +1521,12 @@ app.post(
         link = [];
       }
       if (!adAccountId) return res.status(400).json({ error: 'Missing adAccountId' });
-      console.log('🔍 Before setProgress - jobId:', jobId);
+      // console.log('🔍 Before setProgress - jobId:', jobId);
 
       progressTracker.setProgress(jobId, 5, 'Validating request data...');
-      console.log(progressTracker);
+      // console.log(progressTracker);
 
-      console.log('✅ Progress set to 5% for jobId:', jobId);
+      // console.log('✅ Progress set to 5% for jobId:', jobId);
 
 
       const parseField = (field, fallback) => {
@@ -1823,7 +1823,7 @@ app.post(
 
 
       progressTracker.setProgress(jobId, 20, 'Categorizing files for processing...');
-      console.log('✅ Progress set to 20% for jobId:', jobId);
+      // console.log('✅ Progress set to 20% for jobId:', jobId);
 
       // Add progress context
       const progressContext = { jobId, progressTracker };
@@ -1971,7 +1971,7 @@ app.post(
           return res.status(400).json({ error: "No image file or S3 URL received" })
         }
         // Log request size CHECCKING FOR SIZE
-        console.log("📥 Incoming request size (Content-Length):", req.headers['content-length'], "bytes");
+        // console.log("📥 Incoming request size (Content-Length):", req.headers['content-length'], "bytes");
 
         // Log uploaded file sizes
         Object.entries(req.files || {}).forEach(([field, files]) => {
@@ -3082,6 +3082,9 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
         headers: formData.getHeaders()
       });
 
+      const videoId = videoResponse.data.id;
+      await waitForVideoProcessing(videoId, token)
+
       let thumbnailUrl;
       try {
         console.log("🎬 Getting Meta-generated thumbnail for video:", videoResponse.data.id);
@@ -3103,7 +3106,7 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
         name: headlines[i] || `Card ${i + 1}`,
         description: descriptionsArray[i] || messagesArray[i] || '',
         link: link.length === 1 ? link[0] : (link[i] || link[0]),
-        video_id: videoResponse.data.id,
+        video_id: videoId,
         picture: thumbnailUrl
       });
     } else {
