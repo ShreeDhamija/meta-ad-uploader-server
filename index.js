@@ -2565,7 +2565,8 @@ app.post("/api/upload-from-drive", async (req, res) => {
       responseType: "stream",
     })
 
-    const s3Key = `videos/${Date.now()}-${uuidv4()}-${fileName}`;
+    const sanitizedFileName = fileName.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9.-]/g, '');
+    const s3Key = `videos/${Date.now()}-${uuidv4()}-${sanitizedFileName}`;
 
 
     // ✅ Use AWS SDK v3 syntax with PutObjectCommand
@@ -2621,7 +2622,8 @@ app.post('/auth/get-upload-url', async (req, res) => {
 
   try {
     // Generate unique file name
-    const uniqueFileName = `videos/${Date.now()}-${uuidv4()}-${fileName}`;
+    const sanitizedFileName = fileName.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9.-]/g, '');
+    const uniqueFileName = `videos/${Date.now()}-${uuidv4()}-${sanitizedFileName}`;
 
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
