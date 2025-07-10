@@ -1499,7 +1499,7 @@ app.post(
     //Progress Tracking
     const jobId = req.body.jobId;
     // console.log('🔍 Initial jobId:', jobId, typeof jobId);
-    // console.log('🔍 Full req.body:', req.body);
+    console.log('🔍 Full req.body:', req.body);
     if (!jobId) {
       return res.status(400).json({ error: 'JobId is required' });
     }
