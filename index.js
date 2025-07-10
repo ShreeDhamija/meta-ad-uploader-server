@@ -2126,6 +2126,55 @@ app.get('/auth/generate-ad-preview', async (req, res) => {
   }
 });
 
+// app.get("/auth/fetch-recent-copy", async (req, res) => {
+//   const token = req.session.accessToken;
+//   const { adAccountId } = req.query;
+
+//   if (!token) return res.status(401).json({ error: "Not authenticated" });
+//   if (!adAccountId) return res.status(400).json({ error: "Missing adAccountId" });
+
+//   try {
+//     const url = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+//     const response = await axios.get(url, {
+//       params: {
+//         access_token: token,
+//         fields: 'name,creative{asset_feed_spec,title,body}',
+//         limit: 10,
+//         sort: 'created_time_desc',
+//       },
+//     });
+
+//     const formattedAds = (response.data.data || [])
+//       .map(ad => {
+//         const creative = ad.creative || {};
+//         const spec = creative.asset_feed_spec;
+
+//         // Fallback handling
+//         const primaryTexts = spec?.bodies?.map(b => b.text)
+//           || (creative.body ? [creative.body] : []);
+
+//         const headlines = spec?.titles?.map(t => t.text)
+//           || (creative.title ? [creative.title] : []);
+
+//         if (!primaryTexts.length && !headlines.length) return null; // still empty? skip
+
+//         return {
+//           adName: ad.name,
+//           primaryTexts,
+//           headlines,
+//         };
+//       })
+//       .filter(Boolean);
+
+
+//     res.json({ ads: formattedAds });
+//   } catch (err) {
+//     console.error("Fetch recent copy error:", err.response?.data || err.message);
+//     res.status(500).json({ error: "Failed to fetch recent ad copy" });
+//   }
+// });
+
+
 app.get("/auth/fetch-recent-copy", async (req, res) => {
   const token = req.session.accessToken;
   const { adAccountId } = req.query;
@@ -2134,45 +2183,75 @@ app.get("/auth/fetch-recent-copy", async (req, res) => {
   if (!adAccountId) return res.status(400).json({ error: "Missing adAccountId" });
 
   try {
-    const url = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
-    const response = await axios.get(url, {
-      params: {
+    const uniqueAds = [];
+    const seenCombinations = new Set();
+    let after = null;
+    const batchSize = 25; // Fetch more per batch to reduce API calls
+    const maxBatches = 10; // Safety limit to prevent infinite loops
+    let batchCount = 0;
+
+    while (uniqueAds.length < 5 && batchCount < maxBatches) {
+      const url = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
+      const params = {
         access_token: token,
         fields: 'name,creative{asset_feed_spec,title,body}',
-        limit: 10,
+        limit: batchSize,
         sort: 'created_time_desc',
-      },
-    });
+      };
 
-    const formattedAds = (response.data.data || [])
-      .map(ad => {
+      if (after) {
+        params.after = after;
+      }
+
+      const response = await axios.get(url, { params });
+      const data = response.data.data || [];
+
+      if (data.length === 0) break; // No more ads to fetch
+
+      for (const ad of data) {
+        if (uniqueAds.length >= 5) break;
+
         const creative = ad.creative || {};
         const spec = creative.asset_feed_spec;
 
-        // Fallback handling
         const primaryTexts = spec?.bodies?.map(b => b.text)
           || (creative.body ? [creative.body] : []);
 
         const headlines = spec?.titles?.map(t => t.text)
           || (creative.title ? [creative.title] : []);
 
-        if (!primaryTexts.length && !headlines.length) return null; // still empty? skip
+        if (!primaryTexts.length && !headlines.length) continue;
 
-        return {
-          adName: ad.name,
-          primaryTexts,
-          headlines,
-        };
-      })
-      .filter(Boolean);
+        // Create a unique identifier for this copy combination
+        const copyHash = JSON.stringify({
+          primaryTexts: primaryTexts.sort(),
+          headlines: headlines.sort()
+        });
 
+        if (!seenCombinations.has(copyHash)) {
+          seenCombinations.add(copyHash);
+          uniqueAds.push({
+            adName: ad.name,
+            primaryTexts,
+            headlines,
+          });
+        }
+      }
 
-    res.json({ ads: formattedAds });
+      // Update pagination cursor
+      after = response.data.paging?.cursors?.after;
+      if (!after) break; // No more pages
+
+      batchCount++;
+    }
+
+    res.json({ ads: uniqueAds });
   } catch (err) {
     console.error("Fetch recent copy error:", err.response?.data || err.message);
     res.status(500).json({ error: "Failed to fetch recent ad copy" });
   }
 });
+
 
 app.get("/auth/fetch-recent-url-tags", async (req, res) => {
   const token = req.session.accessToken;
