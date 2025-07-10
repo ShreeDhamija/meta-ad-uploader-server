@@ -2126,53 +2126,7 @@ app.get('/auth/generate-ad-preview', async (req, res) => {
   }
 });
 
-// app.get("/auth/fetch-recent-copy", async (req, res) => {
-//   const token = req.session.accessToken;
-//   const { adAccountId } = req.query;
 
-//   if (!token) return res.status(401).json({ error: "Not authenticated" });
-//   if (!adAccountId) return res.status(400).json({ error: "Missing adAccountId" });
-
-//   try {
-//     const url = `https://graph.facebook.com/v22.0/${adAccountId}/ads`;
-//     const response = await axios.get(url, {
-//       params: {
-//         access_token: token,
-//         fields: 'name,creative{asset_feed_spec,title,body}',
-//         limit: 10,
-//         sort: 'created_time_desc',
-//       },
-//     });
-
-//     const formattedAds = (response.data.data || [])
-//       .map(ad => {
-//         const creative = ad.creative || {};
-//         const spec = creative.asset_feed_spec;
-
-//         // Fallback handling
-//         const primaryTexts = spec?.bodies?.map(b => b.text)
-//           || (creative.body ? [creative.body] : []);
-
-//         const headlines = spec?.titles?.map(t => t.text)
-//           || (creative.title ? [creative.title] : []);
-
-//         if (!primaryTexts.length && !headlines.length) return null; // still empty? skip
-
-//         return {
-//           adName: ad.name,
-//           primaryTexts,
-//           headlines,
-//         };
-//       })
-//       .filter(Boolean);
-
-
-//     res.json({ ads: formattedAds });
-//   } catch (err) {
-//     console.error("Fetch recent copy error:", err.response?.data || err.message);
-//     res.status(500).json({ error: "Failed to fetch recent ad copy" });
-//   }
-// });
 
 
 app.get("/auth/fetch-recent-copy", async (req, res) => {
@@ -3244,13 +3198,32 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
 
       const videoResponse = await axios.post(videoUploadUrl, videoPayload);
       await waitForVideoProcessing(videoResponse.data.id, token)
+
+      let thumbnailUrl;
+      try {
+        console.log("🎬 Getting Meta-generated thumbnail for video:", videoResponse.data.id);
+        thumbnailUrl = await getMetaVideoThumbnail(videoResponse.data.id, token);
+
+        if (thumbnailUrl) {
+          console.log("✅ Using Meta-generated thumbnail:", thumbnailUrl);
+        } else {
+          // Fallback to static URL
+          thumbnailUrl = "https://api.withblip.com/thumbnail.jpg";
+          console.log("⚠️ Using fallback thumbnail URL");
+        }
+      } catch (err) {
+        console.error("❌ Failed to get Meta thumbnail:", err.message);
+        thumbnailUrl = "https://api.withblip.com/thumbnail.jpg";
+      }
+
       const cardIndex = mediaFiles.length + i;
 
       carouselCards.push({
         name: headlines[cardIndex] || `Card ${cardIndex + 1}`,
         description: descriptionsArray[cardIndex] || messagesArray[cardIndex] || '',
         link: link.length === 1 ? link[0] : (link[i] || link[0]),
-        video_id: videoResponse.data.id
+        video_id: videoResponse.data.id,
+        picture: thumbnailUrl
       });
     }
   }
