@@ -3243,6 +3243,7 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
       };
 
       const videoResponse = await axios.post(videoUploadUrl, videoPayload);
+      await waitForVideoProcessing(videoResponse.data.id, token)
       const cardIndex = mediaFiles.length + i;
 
       carouselCards.push({
