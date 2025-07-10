@@ -2641,6 +2641,8 @@ app.post('/auth/get-upload-url', async (req, res) => {
     const publicUrl = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${uniqueFileName}`;
 
     console.log(`✅ Generated presigned URL for: ${fileName} (${fileSize} bytes)`);
+    console.log("upload url", presignedUrl);
+    console.log("public url", publicUrl);
 
     res.json({
       uploadUrl: presignedUrl,
