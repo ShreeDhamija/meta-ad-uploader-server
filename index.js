@@ -3093,6 +3093,7 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
   const singleFile = req.files.imageFile && req.files.imageFile[0];
   if (singleFile) mediaFiles.push(singleFile);
 
+  let shopDestinationFieldsForAssetFeed = {};
   if (shopDestination && shopDestinationType) {
     const onsiteDestinationObject = {};
     if (shopDestinationType === "shop") {
