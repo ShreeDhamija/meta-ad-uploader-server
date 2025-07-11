@@ -3339,7 +3339,7 @@ function buildPlacementCustomizedCreativePayload({ adName, adSetId, pageId, imag
 
       asset_feed_spec: {
         images: imageHashes,
-        ...(shopDestinationFieldsForAssetFeed && { onsite_destinations: shopDestinationFields.onsite_destinations }),
+        ...(shopDestinationFields && { onsite_destinations: shopDestinationFields.onsite_destinations }),
         bodies: messagesArray.map(text => ({
           text,
           adlabels: [{ name: labels.body }]
