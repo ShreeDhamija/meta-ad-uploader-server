@@ -3322,6 +3322,11 @@ function buildPlacementCustomizedCreativePayload({ adName, adSetId, pageId, imag
     shopDestinationFields.onsite_destinations = [onsiteDestinationObject];
   }
 
+  // if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
+  //   creativePart.asset_feed_spec = shopDestinationFieldsForAssetFeed;
+  // }
+  // let assetFeedSpec = { ...shopDestinationFieldsForAssetFeed };
+
   return {
     name: adName,
     adset_id: adSetId,
@@ -3331,8 +3336,10 @@ function buildPlacementCustomizedCreativePayload({ adName, adSetId, pageId, imag
         ...(instagramAccountId && { instagram_user_id: instagramAccountId })
       },
       ...(urlTags && { url_tags: urlTags }),
+
       asset_feed_spec: {
         images: imageHashes,
+        ...(shopDestinationFieldsForAssetFeed && { onsite_destinations: shopDestinationFieldsForAssetFeed.onsite_destinations }),
         bodies: messagesArray.map(text => ({
           text,
           adlabels: [{ name: labels.body }]
@@ -3365,6 +3372,22 @@ async function handlePlacementCustomizedAd(req, token, adAccountId, adSetId, pag
   const mediaFiles = Array.isArray(req.files?.mediaFiles) ? req.files.mediaFiles : [];
   const singleFile = req.files.imageFile ? [req.files.imageFile[0]] : [];
   const allFiles = [...mediaFiles, ...singleFile];
+
+
+
+  let shopDestinationFieldsForAssetFeed = {};
+  if (shopDestination && shopDestinationType) {
+    const onsiteDestinationObject = {};
+    if (shopDestinationType === "shop") {
+      onsiteDestinationObject.storefront_shop_id = shopDestination;
+    } else if (shopDestinationType === "product_set") {
+      onsiteDestinationObject.shop_collection_product_set_id = shopDestination;
+    } else if (shopDestinationType === "product") {
+      onsiteDestinationObject.details_page_product_id = shopDestination;
+    }
+    shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
+    // shopDestinationFieldsForAssetFeed.ad_formats = ["CAROUSEL"];
+  }
 
   // Parse S3 URLs
   let s3VideoUrls = [];
