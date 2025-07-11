@@ -3093,7 +3093,18 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
   const singleFile = req.files.imageFile && req.files.imageFile[0];
   if (singleFile) mediaFiles.push(singleFile);
 
-
+  if (shopDestination && shopDestinationType) {
+    const onsiteDestinationObject = {};
+    if (shopDestinationType === "shop") {
+      onsiteDestinationObject.storefront_shop_id = shopDestination;
+    } else if (shopDestinationType === "product_set") {
+      onsiteDestinationObject.shop_collection_product_set_id = shopDestination;
+    } else if (shopDestinationType === "product") {
+      onsiteDestinationObject.details_page_product_id = shopDestination;
+    }
+    shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
+    // shopDestinationFieldsForAssetFeed.ad_formats = ["CAROUSEL"];
+  }
 
   // Upload all media files and get their hashes/video IDs
   const carouselCards = [];
@@ -3255,7 +3266,10 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
     }
   };
 
-  const createCreativeUrl = `https://graph.facebook.com/v22.0/${adAccountId}/adcreatives`;
+  if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
+    creativePayload.asset_feed_spec = shopDestinationFieldsForAssetFeed;
+  }
+  console.log("util", util.inspect(creativePart, { showHidden: false, depth: null, colors: true })); const createCreativeUrl = `https://graph.facebook.com/v22.0/${adAccountId}/adcreatives`;
   const creativeResponse = await retryWithBackoff(() =>
     axios.post(createCreativeUrl, creativePayload, {
       params: { access_token: token }
