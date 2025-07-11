@@ -29,6 +29,8 @@ const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/cl
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { getProgressTracker, generateJobId, getProgressMessage, router: progressRouter } = require('./services/adProgress');
 const { imageSizeFromFile } = require('image-size/fromFile');
+const util = require('util')
+
 
 
 app.use('/api', progressRouter);
@@ -1091,7 +1093,7 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       onsiteDestinationObject.details_page_product_id = shopDestination;
     }
     shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
-    shopDestinationFieldsForAssetFeed.ad_formats = ["CAROUSEL"];
+    // shopDestinationFieldsForAssetFeed.ad_formats = ["CAROUSEL"];
   }
 
   if (useDynamicCreative) {
@@ -1147,9 +1149,9 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
       },
     };
 
-    // if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
-    //   creativePart.asset_feed_spec = shopDestinationFieldsForAssetFeed;
-    // }
+    if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
+      creativePart.asset_feed_spec = shopDestinationFieldsForAssetFeed;
+    }
     let assetFeedSpec = { ...shopDestinationFieldsForAssetFeed };
     if (hasMultipleTextOptions) {
       assetFeedSpec = {
@@ -1165,6 +1167,9 @@ function buildImageCreativePayload({ adName, adSetId, pageId, imageHash, cta, li
     if (Object.keys(assetFeedSpec).length > 0) {
       creativePart.asset_feed_spec = assetFeedSpec;
     }
+    console.log("log", creativePart);
+    console.log("util", util.inspect(creativePart, { showHidden: false, depth: null, colors: true }));
+    console.dir("dir", creativePart);
 
 
     return {
