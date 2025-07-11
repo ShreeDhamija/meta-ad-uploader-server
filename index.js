@@ -3270,7 +3270,8 @@ async function handleCarouselAd(req, token, adAccountId, adSetId, pageId, adName
   if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
     creativePayload.asset_feed_spec = shopDestinationFieldsForAssetFeed;
   }
-  console.log("util", util.inspect(creativePart, { showHidden: false, depth: null, colors: true })); const createCreativeUrl = `https://graph.facebook.com/v22.0/${adAccountId}/adcreatives`;
+  console.log("util", util.inspect(creativePayload, { showHidden: false, depth: null, colors: true }));
+  const createCreativeUrl = `https://graph.facebook.com/v22.0/${adAccountId}/adcreatives`;
   const creativeResponse = await retryWithBackoff(() =>
     axios.post(createCreativeUrl, creativePayload, {
       params: { access_token: token }
