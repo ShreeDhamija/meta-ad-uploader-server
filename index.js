@@ -986,7 +986,7 @@ function buildVideoCreativePayload({ adName, adSetId, pageId, videoId, cta, link
       onsiteDestinationObject.details_page_product_id = shopDestination;
     }
     shopDestinationFieldsForAssetFeed.onsite_destinations = [onsiteDestinationObject];
-    shopDestinationFieldsForAssetFeed.ad_formats = ["CAROUSEL"];
+    // shopDestinationFieldsForAssetFeed.ad_formats = ["CAROUSEL"];
   }
 
   if (useDynamicCreative) {
@@ -3322,10 +3322,7 @@ function buildPlacementCustomizedCreativePayload({ adName, adSetId, pageId, imag
     shopDestinationFields.onsite_destinations = [onsiteDestinationObject];
   }
 
-  // if (Object.keys(shopDestinationFieldsForAssetFeed).length > 0) {
-  //   creativePart.asset_feed_spec = shopDestinationFieldsForAssetFeed;
-  // }
-  // let assetFeedSpec = { ...shopDestinationFieldsForAssetFeed };
+
 
   return {
     name: adName,
@@ -3715,6 +3712,7 @@ function buildPlacementCustomizedVideoCreativePayload({
       ...(urlTags && { url_tags: urlTags }),
       asset_feed_spec: {
         videos: videoAssets,
+        ...(shopDestinationFields && { onsite_destinations: shopDestinationFields.onsite_destinations }),
         bodies: messagesArray.map(text => ({
           text,
           adlabels: [{ name: labels.body }]
